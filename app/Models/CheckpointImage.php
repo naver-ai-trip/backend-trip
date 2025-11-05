@@ -17,10 +17,14 @@ class CheckpointImage extends Model
         'file_path',
         'caption',
         'uploaded_at',
+        'moderation_results',
+        'is_flagged',
     ];
 
     protected $casts = [
         'uploaded_at' => 'datetime',
+        'moderation_results' => 'array',
+        'is_flagged' => 'boolean',
     ];
 
     /**
@@ -63,5 +67,13 @@ class CheckpointImage extends Model
     public function getUrlAttribute(): string
     {
         return Storage::url($this->file_path);
+    }
+
+    /**
+     * Check if the image has been flagged by content moderation
+     */
+    public function isFlagged(): bool
+    {
+        return $this->is_flagged === true;
     }
 }

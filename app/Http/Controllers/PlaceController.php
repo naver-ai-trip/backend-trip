@@ -27,7 +27,33 @@ class PlaceController extends Controller
     /**
      * Search for places using text query.
      *
-     * POST /api/places/search
+     * @OA\Post(
+     *     path="/api/places/search",
+     *     summary="Search for places by text query",
+     *     tags={"Places"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"query"},
+     *             @OA\Property(property="query", type="string", example="Tokyo Tower")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Search results from NAVER Places",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Place")),
+     *             @OA\Property(property="meta", type="object",
+     *                 @OA\Property(property="total", type="integer"),
+     *                 @OA\Property(property="query", type="string")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError"),
+     *     @OA\Response(response=503, description="NAVER API service unavailable")
+     * )
      */
     public function search(SearchPlacesRequest $request): JsonResponse
     {
@@ -55,7 +81,39 @@ class PlaceController extends Controller
     /**
      * Search for nearby places by coordinates.
      *
-     * POST /api/places/search-nearby
+     * @OA\Post(
+     *     path="/api/places/search-nearby",
+     *     summary="Search for places near specific coordinates",
+     *     tags={"Places"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"latitude", "longitude"},
+     *             @OA\Property(property="latitude", type="number", format="double", example=35.6762),
+     *             @OA\Property(property="longitude", type="number", format="double", example=139.6503),
+     *             @OA\Property(property="query", type="string", example="restaurant"),
+     *             @OA\Property(property="radius", type="integer", example=1000, description="Search radius in meters (default: 500)")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Nearby places from NAVER Local Search",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Place")),
+     *             @OA\Property(property="meta", type="object",
+     *                 @OA\Property(property="total", type="integer"),
+     *                 @OA\Property(property="search_location", type="object",
+     *                     @OA\Property(property="latitude", type="number"),
+     *                     @OA\Property(property="longitude", type="number")
+     *                 ),
+     *                 @OA\Property(property="radius", type="integer")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function searchNearby(SearchNearbyPlacesRequest $request): JsonResponse
     {
@@ -85,7 +143,28 @@ class PlaceController extends Controller
     /**
      * Get place details by NAVER place ID.
      *
-     * GET /api/places/naver/{naverPlaceId}
+     * @OA\Get(
+     *     path="/api/places/naver/{naverPlaceId}",
+     *     summary="Get place details by NAVER place ID",
+     *     tags={"Places"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="naverPlaceId",
+     *         in="path",
+     *         description="NAVER place ID",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Place details from NAVER Maps",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Place")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function getByNaverId(string $naverPlaceId): JsonResponse
     {
@@ -105,7 +184,41 @@ class PlaceController extends Controller
     /**
      * Store a place from NAVER to database.
      *
-     * POST /api/places
+     * @OA\Post(
+     *     path="/api/places",
+     *     summary="Save a place from NAVER to database",
+     *     tags={"Places"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"naver_place_id"},
+     *             @OA\Property(property="naver_place_id", type="string", example="1234567890"),
+     *             @OA\Property(property="fetch_details", type="boolean", example=true, description="Fetch full details from NAVER (default: false)"),
+     *             @OA\Property(property="name", type="string", example="Tokyo Tower", description="Used only if fetch_details is false"),
+     *             @OA\Property(property="latitude", type="number", format="double", example=35.6586, description="Used only if fetch_details is false"),
+     *             @OA\Property(property="longitude", type="number", format="double", example=139.7454, description="Used only if fetch_details is false")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Place saved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Place saved successfully"),
+     *             @OA\Property(property="data", ref="#/components/schemas/Place")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Place already exists",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Place already exists"),
+     *             @OA\Property(property="data", ref="#/components/schemas/Place")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function store(StorePlaceRequest $request): JsonResponse
     {
@@ -158,7 +271,35 @@ class PlaceController extends Controller
     /**
      * Display a listing of saved places.
      *
-     * GET /api/places
+     * @OA\Get(
+     *     path="/api/places",
+     *     summary="List all saved places from database",
+     *     tags={"Places"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         description="Page number for pagination",
+     *         required=false,
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Results per page (default: 15)",
+     *         required=false,
+     *         @OA\Schema(type="integer", example=15)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="List of saved places with reviews",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Place")),
+     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized")
+     * )
      */
     public function index(): AnonymousResourceCollection
     {
@@ -170,7 +311,26 @@ class PlaceController extends Controller
     /**
      * Display the specified place from database.
      *
-     * GET /api/places/{id}
+     * @OA\Get(
+     *     path="/api/places/{place}",
+     *     summary="View a saved place with reviews and favorites",
+     *     tags={"Places"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="place",
+     *         in="path",
+     *         description="Place ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Place details with relationships",
+     *         @OA\JsonContent(ref="#/components/schemas/Place")
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function show(Place $place): PlaceResource
     {
@@ -182,7 +342,36 @@ class PlaceController extends Controller
     /**
      * Update the specified place.
      *
-     * PUT/PATCH /api/places/{id}
+     * @OA\Patch(
+     *     path="/api/places/{place}",
+     *     summary="Update a saved place",
+     *     tags={"Places"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="place",
+     *         in="path",
+     *         description="Place ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="name", type="string", example="Tokyo Tower"),
+     *             @OA\Property(property="category", type="string", example="Landmark"),
+     *             @OA\Property(property="address", type="string", example="4 Chome-2-8 Shibakoen, Minato City, Tokyo"),
+     *             @OA\Property(property="lat", type="number", format="double", example=35.6586),
+     *             @OA\Property(property="lng", type="number", format="double", example=139.7454)
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Place updated successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/Place")
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function update(Request $request, Place $place): PlaceResource
     {
@@ -200,7 +389,28 @@ class PlaceController extends Controller
     /**
      * Remove the specified place.
      *
-     * DELETE /api/places/{id}
+     * @OA\Delete(
+     *     path="/api/places/{place}",
+     *     summary="Delete a saved place",
+     *     tags={"Places"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="place",
+     *         in="path",
+     *         description="Place ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Place deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Place deleted successfully")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function destroy(Place $place): JsonResponse
     {

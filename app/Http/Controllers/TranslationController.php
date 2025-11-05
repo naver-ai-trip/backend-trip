@@ -23,6 +23,31 @@ class TranslationController extends Controller
 
     /**
      * Translate text using Papago
+     *
+     * @OA\Post(
+     *     path="/api/translations/text",
+     *     summary="Translate text using NAVER Papago",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"text", "target_language"},
+     *             @OA\Property(property="text", type="string", example="안녕하세요", description="Text to translate (max 5000 chars)"),
+     *             @OA\Property(property="source_language", type="string", example="ko", description="Source language code (auto-detect if omitted)"),
+     *             @OA\Property(property="target_language", type="string", example="en", description="Target language code")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Translation created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Translation")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function translateText(TranslateTextRequest $request)
     {
@@ -50,6 +75,34 @@ class TranslationController extends Controller
 
     /**
      * Extract text from image via OCR and translate
+     *
+     * @OA\Post(
+     *     path="/api/translations/ocr",
+     *     summary="Extract text from image and translate using NAVER Clova OCR + Papago",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 required={"image", "target_language"},
+     *                 @OA\Property(property="image", type="string", format="binary", description="Image file (max 10MB)"),
+     *                 @OA\Property(property="source_language", type="string", example="ko"),
+     *                 @OA\Property(property="target_language", type="string", example="en")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="OCR and translation completed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Translation")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function translateOcr(TranslateOcrRequest $request)
     {
@@ -85,6 +138,34 @@ class TranslationController extends Controller
 
     /**
      * Transcribe speech to text and translate
+     *
+     * @OA\Post(
+     *     path="/api/translations/speech",
+     *     summary="Transcribe audio and translate using NAVER Clova Speech + Papago",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 required={"audio", "target_language"},
+     *                 @OA\Property(property="audio", type="string", format="binary", description="Audio file (mp3, wav, m4a, max 20MB)"),
+     *                 @OA\Property(property="source_language", type="string", example="ko"),
+     *                 @OA\Property(property="target_language", type="string", example="en")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Speech-to-text and translation completed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Translation")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function translateSpeech(TranslateSpeechRequest $request)
     {
@@ -120,6 +201,40 @@ class TranslationController extends Controller
 
     /**
      * List user's translations with optional filters
+     *
+     * @OA\Get(
+     *     path="/api/translations",
+     *     summary="List user's translation history",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="source_type",
+     *         in="query",
+     *         description="Filter by source type",
+     *         @OA\Schema(type="string", enum={"text", "image", "speech"})
+     *     ),
+     *     @OA\Parameter(
+     *         name="source_language",
+     *         in="query",
+     *         description="Filter by source language",
+     *         @OA\Schema(type="string", example="ko")
+     *     ),
+     *     @OA\Parameter(
+     *         name="target_language",
+     *         in="query",
+     *         description="Filter by target language",
+     *         @OA\Schema(type="string", example="en")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Translation list",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Translation")),
+     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized")
+     * )
      */
     public function index(Request $request)
     {
@@ -143,6 +258,29 @@ class TranslationController extends Controller
 
     /**
      * View a single translation
+     *
+     * @OA\Get(
+     *     path="/api/translations/{translation}",
+     *     summary="View translation details",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="translation",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Translation details",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Translation")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function show(Translation $translation)
     {
@@ -153,6 +291,23 @@ class TranslationController extends Controller
 
     /**
      * Delete a translation and its file (if any)
+     *
+     * @OA\Delete(
+     *     path="/api/translations/{translation}",
+     *     summary="Delete a translation",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="translation",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(response=204, description="Translation deleted successfully"),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function destroy(Translation $translation)
     {

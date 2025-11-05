@@ -58,6 +58,8 @@ class StoreReviewRequest extends FormRequest
             ],
             'rating' => ['required', 'integer', 'between:1,5'],
             'comment' => ['nullable', 'string', 'max:1000'],
+            'images' => ['nullable', 'array', 'max:5'],
+            'images.*' => ['image', 'mimes:jpeg,jpg,png,gif,webp', 'max:10240'], // 10MB
         ];
     }
 
@@ -76,6 +78,11 @@ class StoreReviewRequest extends FormRequest
             'rating.required' => 'A rating is required.',
             'rating.between' => 'The rating must be between 1 and 5.',
             'comment.max' => 'The comment must not exceed 1000 characters.',
+            'images.array' => 'Images must be an array.',
+            'images.max' => 'You can upload a maximum of 5 images.',
+            'images.*.image' => 'Each file must be an image.',
+            'images.*.mimes' => 'Images must be jpeg, jpg, png, gif, or webp format.',
+            'images.*.max' => 'Each image must not exceed 10MB.',
         ];
     }
 }

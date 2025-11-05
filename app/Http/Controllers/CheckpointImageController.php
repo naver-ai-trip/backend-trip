@@ -14,8 +14,47 @@ use Illuminate\Support\Str;
 
 class CheckpointImageController extends Controller
 {
+
     /**
      * Display a listing of the checkpoint images.
+     *
+     * @OA\Get(
+     *     path="/api/checkpoints/{checkpoint}/images",
+     *     summary="List images for a checkpoint",
+     *     tags={"Checkpoint Images"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="checkpoint",
+     *         in="path",
+     *         description="Checkpoint ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         description="Page number for pagination",
+     *         required=false,
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Results per page (default: 15)",
+     *         required=false,
+     *         @OA\Schema(type="integer", example=15)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="List of checkpoint images ordered by uploaded_at desc",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/CheckpointImage")),
+     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function index(MapCheckpoint $checkpoint): AnonymousResourceCollection
     {
@@ -28,7 +67,42 @@ class CheckpointImageController extends Controller
     }
 
     /**
-     * Store a newly uploaded checkpoint image.
+     * Store a newly uploaded checkpoint image with automatic content moderation.
+     *
+     * @OA\Post(
+     *     path="/api/checkpoints/{checkpoint}/images",
+     *     summary="Upload an image to a checkpoint with NAVER Green-Eye moderation (trip owner only)",
+     *     description="Uploads image with automatic content moderation for adult content and violence",
+     *     tags={"Checkpoint Images"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="checkpoint",
+     *         in="path",
+     *         description="Checkpoint ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 required={"image"},
+     *                 @OA\Property(property="image", type="string", format="binary", description="Image file (jpeg, jpg, png, gif, webp, max 10MB)"),
+     *                 @OA\Property(property="caption", type="string", example="Beautiful view from Tokyo Tower", description="Optional caption (max 500 chars)")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Image uploaded successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/CheckpointImage")
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function store(StoreCheckpointImageRequest $request, MapCheckpoint $checkpoint): JsonResponse
     {
@@ -51,7 +125,7 @@ class CheckpointImageController extends Controller
         // Store file on public disk
         Storage::disk('public')->put($path, file_get_contents($file));
 
-        // Create database record
+        // Create database record (moderation will be done asynchronously)
         $image = CheckpointImage::create([
             'map_checkpoint_id' => $checkpoint->id,
             'user_id' => $request->user()->id,
@@ -60,6 +134,9 @@ class CheckpointImageController extends Controller
             'uploaded_at' => now(),
         ]);
 
+        // Dispatch job for asynchronous moderation
+        \App\Jobs\ProcessImageModeration::dispatch('checkpoint_image', $image->id, $path);
+
         return (new CheckpointImageResource($image))
             ->response()
             ->setStatusCode(201);
@@ -67,6 +144,35 @@ class CheckpointImageController extends Controller
 
     /**
      * Display the specified checkpoint image.
+     *
+     * @OA\Get(
+     *     path="/api/checkpoints/{checkpoint}/images/{image}",
+     *     summary="View a checkpoint image",
+     *     tags={"Checkpoint Images"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="checkpoint",
+     *         in="path",
+     *         description="Checkpoint ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="image",
+     *         in="path",
+     *         description="Image ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Image details with checkpoint and user relationships",
+     *         @OA\JsonContent(ref="#/components/schemas/CheckpointImage")
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function show(MapCheckpoint $checkpoint, CheckpointImage $image): CheckpointImageResource
     {
@@ -85,6 +191,43 @@ class CheckpointImageController extends Controller
 
     /**
      * Update the checkpoint image caption.
+     *
+     * @OA\Patch(
+     *     path="/api/checkpoints/{checkpoint}/images/{image}",
+     *     summary="Update image caption (uploader only)",
+     *     tags={"Checkpoint Images"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="checkpoint",
+     *         in="path",
+     *         description="Checkpoint ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="image",
+     *         in="path",
+     *         description="Image ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"caption"},
+     *             @OA\Property(property="caption", type="string", example="Updated caption", description="Max 500 characters")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Caption updated successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/CheckpointImage")
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function update(UpdateCheckpointImageRequest $request, MapCheckpoint $checkpoint, CheckpointImage $image): CheckpointImageResource
     {
@@ -103,6 +246,34 @@ class CheckpointImageController extends Controller
 
     /**
      * Remove the checkpoint image and delete the file.
+     *
+     * @OA\Delete(
+     *     path="/api/checkpoints/{checkpoint}/images/{image}",
+     *     summary="Delete checkpoint image (uploader or trip owner)",
+     *     tags={"Checkpoint Images"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="checkpoint",
+     *         in="path",
+     *         description="Checkpoint ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="image",
+     *         in="path",
+     *         description="Image ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=204,
+     *         description="Image deleted successfully (file and database record)"
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function destroy(MapCheckpoint $checkpoint, CheckpointImage $image): JsonResponse
     {

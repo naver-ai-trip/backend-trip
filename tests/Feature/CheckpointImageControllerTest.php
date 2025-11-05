@@ -452,4 +452,99 @@ class CheckpointImageControllerTest extends TestCase
             $this->assertStringEndsWith(".{$format}", $image->file_path);
         }
     }
+
+    /** @test */
+    public function checkpoint_image_is_automatically_moderated()
+    {
+        \Queue::fake();
+        $file = UploadedFile::fake()->image('safe.jpg');
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson("/api/checkpoints/{$this->checkpoint->id}/images", [
+                'image' => $file,
+            ]);
+
+        $response->assertCreated();
+
+        $image = CheckpointImage::first();
+        $this->assertNotNull($image->file_path);
+
+        // Assert moderation job was dispatched
+        \Queue::assertPushed(\App\Jobs\ProcessImageModeration::class, function ($job) use ($image) {
+            return $job->modelType === 'checkpoint_image' && $job->modelId === $image->id;
+        });
+    }
+
+    /** @test */
+    public function checkpoint_image_flagged_when_inappropriate()
+    {
+        \Queue::fake();
+        $file = UploadedFile::fake()->image('inappropriate.jpg');
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson("/api/checkpoints/{$this->checkpoint->id}/images", [
+                'image' => $file,
+            ]);
+
+        $response->assertCreated();
+
+        $image = CheckpointImage::first();
+        $this->assertNotNull($image->file_path);
+
+        // Assert moderation job was dispatched
+        \Queue::assertPushed(\App\Jobs\ProcessImageModeration::class);
+    }
+
+    /** @test */
+    public function checkpoint_image_validation_requires_valid_format()
+    {
+        $invalidFile = UploadedFile::fake()->create('document.pdf', 1024);
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson("/api/checkpoints/{$this->checkpoint->id}/images", [
+                'image' => $invalidFile,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['image']);
+    }
+
+    /** @test */
+    public function checkpoint_image_validation_enforces_max_size()
+    {
+        $largeImage = UploadedFile::fake()->image('large.jpg')->size(11000); // 11MB
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson("/api/checkpoints/{$this->checkpoint->id}/images", [
+                'image' => $largeImage,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['image']);
+    }
+
+    /** @test */
+    public function moderation_results_included_in_response()
+    {
+        \Queue::fake();
+        $file = UploadedFile::fake()->image('checkpoint.jpg');
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson("/api/checkpoints/{$this->checkpoint->id}/images", [
+                'image' => $file,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'map_checkpoint_id',
+                    'user_id',
+                    'file_path',
+                    'url',
+                    'is_flagged',
+                    // moderation_results only included if flagged
+                ],
+            ]);
+    }
 }

@@ -28,6 +28,9 @@ class ReviewResource extends JsonResource
             'reviewable_id' => $this->reviewable_id,
             'rating' => $this->rating,
             'comment' => $this->comment,
+            'images' => $this->image_urls ?? [], // Use accessor from model
+            'is_flagged' => $this->is_flagged ?? false,
+            'moderation_results' => $this->when($this->is_flagged, $this->moderation_results),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             

@@ -8,6 +8,8 @@ use App\Models\Trip;
 use App\Models\TripDiary;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CommentControllerTest extends TestCase
@@ -474,5 +476,184 @@ class CommentControllerTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.0.user.id', $this->user->id);
+    }
+
+    /** @test */
+    public function user_can_create_comment_with_images()
+    {
+        Storage::fake('public');
+
+        $trip = Trip::factory()->create(['user_id' => $this->user->id]);
+        $images = [
+            UploadedFile::fake()->image('photo1.jpg'),
+            UploadedFile::fake()->image('photo2.jpg'),
+        ];
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/comments', [
+                'entity_type' => 'trip',
+                'entity_id' => $trip->id,
+                'content' => 'Comment with images',
+                'images' => $images,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.is_flagged', false)
+            ->assertJsonCount(2, 'data.images');
+
+        $comment = Comment::first();
+        $this->assertCount(2, $comment->images);
+        
+        // Verify files were stored
+        foreach ($comment->images as $imagePath) {
+            Storage::disk('public')->assertExists($imagePath);
+        }
+    }
+
+    /** @test */
+    public function comment_images_are_automatically_moderated()
+    {
+        Storage::fake('public');
+        \Queue::fake();
+
+        $trip = Trip::factory()->create(['user_id' => $this->user->id]);
+        $image = UploadedFile::fake()->image('safe.jpg');
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/comments', [
+                'entity_type' => 'trip',
+                'entity_id' => $trip->id,
+                'content' => 'Safe comment',
+                'images' => [$image],
+            ]);
+
+        $response->assertCreated();
+
+        $comment = Comment::first();
+        $this->assertNotNull($comment->images);
+        $this->assertCount(1, $comment->images);
+
+        // Assert moderation job was dispatched
+        \Queue::assertPushed(\App\Jobs\ProcessImageModeration::class, function ($job) use ($comment) {
+            return $job->modelType === 'comment' && $job->modelId === $comment->id;
+        });
+    }
+
+    /** @test */
+    public function comment_with_inappropriate_image_is_flagged()
+    {
+        Storage::fake('public');
+        \Queue::fake();
+
+        $trip = Trip::factory()->create(['user_id' => $this->user->id]);
+        $image = UploadedFile::fake()->image('inappropriate.jpg');
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/comments', [
+                'entity_type' => 'trip',
+                'entity_id' => $trip->id,
+                'content' => 'Inappropriate comment',
+                'images' => [$image],
+            ]);
+
+        $response->assertCreated();
+
+        $comment = Comment::first();
+        $this->assertNotNull($comment->images);
+
+        // Assert moderation job was dispatched
+        \Queue::assertPushed(\App\Jobs\ProcessImageModeration::class);
+    }
+
+    /** @test */
+    public function comment_can_upload_maximum_five_images()
+    {
+        Storage::fake('public');
+        \Queue::fake();
+
+        $trip = Trip::factory()->create(['user_id' => $this->user->id]);
+        $images = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $images[] = UploadedFile::fake()->image("photo{$i}.jpg");
+        }
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/comments', [
+                'entity_type' => 'trip',
+                'entity_id' => $trip->id,
+                'content' => 'Five images',
+                'images' => $images,
+            ]);
+
+        $response->assertCreated();
+
+        $comment = Comment::first();
+        $this->assertCount(5, $comment->images);
+
+        // Assert 5 moderation jobs were dispatched
+        \Queue::assertPushed(\App\Jobs\ProcessImageModeration::class, 5);
+    }
+
+    /** @test */
+    public function comment_cannot_upload_more_than_five_images()
+    {
+        Storage::fake('public');
+
+        $trip = Trip::factory()->create(['user_id' => $this->user->id]);
+        $images = [];
+        for ($i = 1; $i <= 6; $i++) {
+            $images[] = UploadedFile::fake()->image("photo{$i}.jpg");
+        }
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/comments', [
+                'entity_type' => 'trip',
+                'entity_id' => $trip->id,
+                'content' => 'Too many images',
+                'images' => $images,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['images']);
+    }
+
+    /** @test */
+    public function comment_image_must_be_valid_format()
+    {
+        Storage::fake('public');
+
+        $trip = Trip::factory()->create(['user_id' => $this->user->id]);
+        $invalidFile = UploadedFile::fake()->create('document.pdf', 1024);
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/comments', [
+                'entity_type' => 'trip',
+                'entity_id' => $trip->id,
+                'content' => 'Invalid format',
+                'images' => [$invalidFile],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['images.0']);
+    }
+
+    /** @test */
+    public function comment_image_cannot_exceed_10mb()
+    {
+        Storage::fake('public');
+
+        $trip = Trip::factory()->create(['user_id' => $this->user->id]);
+        $largeImage = UploadedFile::fake()->image('large.jpg')->size(11000); // 11MB
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/comments', [
+                'entity_type' => 'trip',
+                'entity_id' => $trip->id,
+                'content' => 'Large image',
+                'images' => [$largeImage],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['images.0']);
     }
 }

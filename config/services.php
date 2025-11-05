@@ -89,6 +89,14 @@ return [
             'enabled' => env('NAVER_SEARCH_TREND_ENABLED', true),
         ],
 
+        // Green-Eye API (Content Moderation) - Adult/Violence detection
+        'greeneye' => [
+            'url' => env('NAVER_GREENEYE_URL'),
+            'secret_key' => env('NAVER_GREENEYE_SECRET_KEY'),
+            'enabled' => env('NAVER_GREENEYE_ENABLED', true),
+            'timeout' => env('NAVER_GREENEYE_TIMEOUT', 30),
+        ],
+
         // OAuth (Login with NAVER)
         'oauth' => [
             'client_id' => env('NAVER_CLIENT_ID'),

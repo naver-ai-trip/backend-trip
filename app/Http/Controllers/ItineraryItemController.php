@@ -15,6 +15,50 @@ class ItineraryItemController extends Controller
 {
     /**
      * Display a listing of the resource.
+     *
+     * @OA\Get(
+     *     path="/api/itinerary-items",
+     *     summary="List itinerary items with day/time ordering",
+     *     tags={"Itinerary Items"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="trip_id",
+     *         in="query",
+     *         description="Filter by trip ID",
+     *         required=false,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="day_number",
+     *         in="query",
+     *         description="Filter by day number (1-based)",
+     *         required=false,
+     *         @OA\Schema(type="integer", minimum=1, example=2)
+     *     ),
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         description="Page number for pagination",
+     *         required=false,
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Results per page (default: 15)",
+     *         required=false,
+     *         @OA\Schema(type="integer", example=15)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="List of itinerary items ordered by day_number and start_time",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/ItineraryItem")),
+     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized")
+     * )
      */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -41,6 +85,34 @@ class ItineraryItemController extends Controller
 
     /**
      * Store a newly created resource in storage.
+     *
+     * @OA\Post(
+     *     path="/api/itinerary-items",
+     *     summary="Create an itinerary item for a trip (trip owner only)",
+     *     tags={"Itinerary Items"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"trip_id", "title", "day_number"},
+     *             @OA\Property(property="trip_id", type="integer", example=5),
+     *             @OA\Property(property="title", type="string", example="Visit Tokyo Tower"),
+     *             @OA\Property(property="day_number", type="integer", minimum=1, example=2),
+     *             @OA\Property(property="start_time", type="string", format="time", example="09:00:00", description="H:i:s format (nullable)"),
+     *             @OA\Property(property="end_time", type="string", format="time", example="11:00:00", description="H:i:s format (nullable)"),
+     *             @OA\Property(property="place_id", type="integer", example=10, description="Optional place association"),
+     *             @OA\Property(property="description", type="string", example="Enjoy panoramic views of Tokyo")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Itinerary item created successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/ItineraryItem")
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function store(StoreItineraryItemRequest $request): ItineraryItemResource
     {
@@ -56,6 +128,28 @@ class ItineraryItemController extends Controller
 
     /**
      * Display the specified resource.
+     *
+     * @OA\Get(
+     *     path="/api/itinerary-items/{itineraryItem}",
+     *     summary="View a single itinerary item",
+     *     tags={"Itinerary Items"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="itineraryItem",
+     *         in="path",
+     *         description="Itinerary Item ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Itinerary item details with trip and place relationships",
+     *         @OA\JsonContent(ref="#/components/schemas/ItineraryItem")
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function show(ItineraryItem $itineraryItem): ItineraryItemResource
     {
@@ -68,6 +162,40 @@ class ItineraryItemController extends Controller
 
     /**
      * Update the specified resource in storage.
+     *
+     * @OA\Patch(
+     *     path="/api/itinerary-items/{itineraryItem}",
+     *     summary="Update itinerary item (trip owner only)",
+     *     tags={"Itinerary Items"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="itineraryItem",
+     *         in="path",
+     *         description="Itinerary Item ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="title", type="string", example="Updated activity title"),
+     *             @OA\Property(property="day_number", type="integer", minimum=1, example=3),
+     *             @OA\Property(property="start_time", type="string", format="time", example="10:30:00"),
+     *             @OA\Property(property="end_time", type="string", format="time", example="12:30:00"),
+     *             @OA\Property(property="place_id", type="integer", example=15),
+     *             @OA\Property(property="description", type="string", example="Updated description")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Itinerary item updated successfully",
+     *         @OA\JsonContent(ref="#/components/schemas/ItineraryItem")
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
      */
     public function update(UpdateItineraryItemRequest $request, ItineraryItem $itineraryItem): ItineraryItemResource
     {
@@ -82,6 +210,27 @@ class ItineraryItemController extends Controller
 
     /**
      * Remove the specified resource from storage.
+     *
+     * @OA\Delete(
+     *     path="/api/itinerary-items/{itineraryItem}",
+     *     summary="Delete an itinerary item (trip owner only)",
+     *     tags={"Itinerary Items"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="itineraryItem",
+     *         in="path",
+     *         description="Itinerary Item ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=204,
+     *         description="Itinerary item deleted successfully"
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=404, ref="#/components/responses/NotFound")
+     * )
      */
     public function destroy(ItineraryItem $itineraryItem): JsonResponse
     {

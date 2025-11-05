@@ -57,6 +57,30 @@ class StoreCommentRequest extends FormRequest
                 },
             ],
             'content' => ['required', 'string', 'max:2000'],
+            'images' => ['nullable', 'array', 'max:5'],
+            'images.*' => ['image', 'mimes:jpeg,jpg,png,gif,webp', 'max:10240'], // 10MB
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'entity_type.required' => 'The entity type is required.',
+            'entity_type.in' => 'The entity type must be trip, map_checkpoint, or trip_diary.',
+            'entity_id.required' => 'The entity ID is required.',
+            'entity_id.integer' => 'The entity ID must be an integer.',
+            'content.required' => 'Content is required.',
+            'content.max' => 'Content must not exceed 2000 characters.',
+            'images.array' => 'Images must be an array.',
+            'images.max' => 'You can upload a maximum of 5 images.',
+            'images.*.image' => 'Each file must be an image.',
+            'images.*.mimes' => 'Images must be jpeg, jpg, png, gif, or webp format.',
+            'images.*.max' => 'Each image must not exceed 10MB.',
         ];
     }
 

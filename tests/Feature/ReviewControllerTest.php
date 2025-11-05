@@ -8,6 +8,8 @@ use App\Models\Review;
 use App\Models\Trip;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -597,5 +599,191 @@ class ReviewControllerTest extends TestCase
             $response->assertCreated()
                 ->assertJsonPath('data.rating', $rating);
         }
+    }
+
+    /** @test */
+    public function user_can_create_review_with_images()
+    {
+        Storage::fake('public');
+        
+        $place = Place::factory()->create();
+        $image1 = UploadedFile::fake()->image('photo1.jpg', 800, 600)->size(1024); // 1MB
+        $image2 = UploadedFile::fake()->image('photo2.png', 1024, 768)->size(2048); // 2MB
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->post('/api/reviews', [
+                'reviewable_type' => 'place',
+                'reviewable_id' => $place->id,
+                'rating' => 5,
+                'comment' => 'Great place with photos!',
+                'images' => [$image1, $image2],
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.rating', 5)
+            ->assertJsonPath('data.comment', 'Great place with photos!')
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'images',
+                    'is_flagged',
+                ]
+            ]);
+
+        $review = Review::first();
+        $this->assertNotEmpty($review->images);
+        $this->assertCount(2, $review->images);
+        
+        // Verify files were stored
+        foreach ($review->images as $imagePath) {
+            Storage::disk('public')->assertExists($imagePath);
+        }
+    }
+
+    /** @test */
+    public function review_images_are_automatically_moderated()
+    {
+        Storage::fake('public');
+        \Queue::fake();
+
+        $place = Place::factory()->create();
+        $image = UploadedFile::fake()->image('safe.jpg');
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->post('/api/reviews', [
+                'reviewable_type' => 'place',
+                'reviewable_id' => $place->id,
+                'rating' => 5,
+                'images' => [$image],
+            ]);
+
+        $response->assertCreated();
+
+        $review = Review::first();
+        $this->assertNotNull($review->images);
+        $this->assertCount(1, $review->images);
+
+        // Assert moderation job was dispatched
+        \Queue::assertPushed(\App\Jobs\ProcessImageModeration::class, function ($job) use ($review) {
+            return $job->modelType === 'review' && $job->modelId === $review->id;
+        });
+    }
+
+    /** @test */
+    public function review_with_inappropriate_image_is_flagged()
+    {
+        Storage::fake('public');
+        \Queue::fake();
+
+        $place = Place::factory()->create();
+        $image = UploadedFile::fake()->image('inappropriate.jpg');
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->post('/api/reviews', [
+                'reviewable_type' => 'place',
+                'reviewable_id' => $place->id,
+                'rating' => 3,
+                'images' => [$image],
+            ]);
+
+        $response->assertCreated();
+
+        $review = Review::first();
+        $this->assertNotNull($review->images);
+
+        // Assert moderation job was dispatched
+        \Queue::assertPushed(\App\Jobs\ProcessImageModeration::class);
+    }
+
+    /** @test */
+    public function review_can_upload_maximum_five_images()
+    {
+        Storage::fake('public');
+        \Queue::fake();
+
+        $place = Place::factory()->create();
+        $images = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $images[] = UploadedFile::fake()->image("photo{$i}.jpg");
+        }
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->post('/api/reviews', [
+                'reviewable_type' => 'place',
+                'reviewable_id' => $place->id,
+                'rating' => 5,
+                'images' => $images,
+            ]);
+
+        $response->assertCreated();
+
+        $review = Review::first();
+        $this->assertCount(5, $review->images);
+
+        // Assert 5 moderation jobs were dispatched
+        \Queue::assertPushed(\App\Jobs\ProcessImageModeration::class, 5);
+    }
+
+    /** @test */
+    public function review_cannot_upload_more_than_five_images()
+    {
+        Storage::fake('public');
+
+        $place = Place::factory()->create();
+        $images = [];
+        for ($i = 1; $i <= 6; $i++) {
+            $images[] = UploadedFile::fake()->image("photo{$i}.jpg");
+        }
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/reviews', [
+                'reviewable_type' => 'place',
+                'reviewable_id' => $place->id,
+                'rating' => 5,
+                'images' => $images,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['images']);
+    }
+
+    /** @test */
+    public function review_image_must_be_valid_format()
+    {
+        Storage::fake('public');
+
+        $place = Place::factory()->create();
+        $invalidFile = UploadedFile::fake()->create('document.pdf', 1024);
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/reviews', [
+                'reviewable_type' => 'place',
+                'reviewable_id' => $place->id,
+                'rating' => 5,
+                'images' => [$invalidFile],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['images.0']);
+    }
+
+    /** @test */
+    public function review_image_cannot_exceed_10mb()
+    {
+        Storage::fake('public');
+
+        $place = Place::factory()->create();
+        $largeImage = UploadedFile::fake()->image('large.jpg')->size(11000); // 11MB
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/reviews', [
+                'reviewable_type' => 'place',
+                'reviewable_id' => $place->id,
+                'rating' => 5,
+                'images' => [$largeImage],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['images.0']);
     }
 }

@@ -21,6 +21,8 @@ class CheckpointImageResource extends JsonResource
             'file_path' => $this->file_path,
             'url' => $this->url, // Uses model accessor
             'caption' => $this->caption,
+            'is_flagged' => $this->is_flagged ?? false,
+            'moderation_results' => $this->when($this->is_flagged, $this->moderation_results),
             'uploaded_at' => $this->uploaded_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

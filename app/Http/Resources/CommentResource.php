@@ -28,6 +28,9 @@ class CommentResource extends JsonResource
             },
             'entity_id' => $this->entity_id,
             'content' => $this->content,
+            'images' => $this->image_urls ?? [], // Use accessor from model
+            'is_flagged' => $this->is_flagged ?? false,
+            'moderation_results' => $this->when($this->is_flagged, $this->moderation_results),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'user' => $this->whenLoaded('user'),
