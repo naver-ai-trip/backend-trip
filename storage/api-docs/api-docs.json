@@ -10,11 +10,114 @@
     },
     "servers": [
         {
-            "url": "http://my-default-host.com",
+            "url": "http://tripplanner.test",
             "description": "API Server"
         }
     ],
     "paths": {
+        "/api/auth/google": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Redirect to Google OAuth login page",
+                "description": "Redirect to Google OAuth page",
+                "operationId": "588c97c54cea606cf3b7e2d412813260",
+                "responses": {
+                    "200": {
+                        "description": "Redirect URL for Google OAuth",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "url": {
+                                            "type": "string",
+                                            "example": "https://accounts.google.com/oauth2..."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/google/callback": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Handle Google OAuth callback and create/login user",
+                "description": "Handle Google OAuth callback",
+                "operationId": "02074cf3896aaaa62d46235cf15947e4",
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User authenticated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "email": {
+                                                    "type": "string"
+                                                },
+                                                "avatar_path": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "token": {
+                                            "description": "Sanctum API token",
+                                            "type": "string"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Login successful"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "OAuth callback failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unable to authenticate with Google"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/checklist-items": {
             "get": {
                 "tags": [
@@ -1848,6 +1951,563 @@
                 ]
             }
         },
+        "/api/maps/geocode": {
+            "post": {
+                "tags": [
+                    "Maps"
+                ],
+                "summary": "Convert address to coordinates (Geocoding)",
+                "description": "Uses NAVER Maps Geocoding API to convert an address or place name to latitude/longitude coordinates",
+                "operationId": "fa6a5008ca470215a4b3b826402a3376",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "query"
+                                ],
+                                "properties": {
+                                    "query": {
+                                        "description": "Address or place name in Korean or English",
+                                        "type": "string",
+                                        "example": "강남역"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Geocoding successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "address": {
+                                                    "type": "string",
+                                                    "example": "서울특별시 강남구 역삼동 819-7"
+                                                },
+                                                "roadAddress": {
+                                                    "type": "string",
+                                                    "example": "서울특별시 강남구 강남대로 396"
+                                                },
+                                                "latitude": {
+                                                    "type": "number",
+                                                    "format": "double",
+                                                    "example": 37.498095
+                                                },
+                                                "longitude": {
+                                                    "type": "number",
+                                                    "format": "double",
+                                                    "example": 127.02761
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Address not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Address not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/maps/reverse-geocode": {
+            "post": {
+                "tags": [
+                    "Maps"
+                ],
+                "summary": "Convert coordinates to address (Reverse Geocoding)",
+                "description": "Uses NAVER Maps Reverse Geocoding API to convert latitude/longitude to a human-readable address",
+                "operationId": "a1373a9f78303ba1f03518875545eecc",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "latitude",
+                                    "longitude"
+                                ],
+                                "properties": {
+                                    "latitude": {
+                                        "description": "Latitude coordinate",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 37.5665
+                                    },
+                                    "longitude": {
+                                        "description": "Longitude coordinate",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 126.978
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Reverse geocoding successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "address": {
+                                                    "type": "string",
+                                                    "example": "서울특별시 중구 태평로1가 31"
+                                                },
+                                                "roadAddress": {
+                                                    "type": "string",
+                                                    "example": "서울특별시 중구 세종대로 110"
+                                                },
+                                                "area1": {
+                                                    "description": "City/Province",
+                                                    "type": "string",
+                                                    "example": "서울특별시"
+                                                },
+                                                "area2": {
+                                                    "description": "District",
+                                                    "type": "string",
+                                                    "example": "중구"
+                                                },
+                                                "area3": {
+                                                    "description": "Neighborhood",
+                                                    "type": "string",
+                                                    "example": "태평로1가"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Address not found for coordinates",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Address not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/maps/directions": {
+            "post": {
+                "tags": [
+                    "Maps"
+                ],
+                "summary": "Get driving directions between two points",
+                "description": "Uses NAVER Maps Directions 5 API to calculate optimal driving route. Supports 5 different route options.",
+                "operationId": "5d6c06d97ea8ecae7a1c94d201bd5899",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "start_lat",
+                                    "start_lng",
+                                    "goal_lat",
+                                    "goal_lng"
+                                ],
+                                "properties": {
+                                    "start_lat": {
+                                        "description": "Start latitude",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 37.5665
+                                    },
+                                    "start_lng": {
+                                        "description": "Start longitude",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 126.978
+                                    },
+                                    "goal_lat": {
+                                        "description": "Goal latitude",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 37.5172
+                                    },
+                                    "goal_lng": {
+                                        "description": "Goal longitude",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 127.0473
+                                    },
+                                    "option": {
+                                        "description": "Route option: trafast (traffic-aware fast), traoptimal (optimal), tracomfort (comfort), traavoidtoll (avoid tolls), traavoidcaronly (avoid car-only roads)",
+                                        "type": "string",
+                                        "enum": [
+                                            "trafast",
+                                            "traoptimal",
+                                            "tracomfort",
+                                            "traavoidtoll",
+                                            "traavoidcaronly"
+                                        ],
+                                        "example": "traoptimal"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Directions calculated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "distance": {
+                                                    "description": "Total distance in meters",
+                                                    "type": "integer",
+                                                    "example": 5420
+                                                },
+                                                "duration": {
+                                                    "description": "Estimated duration in milliseconds",
+                                                    "type": "integer",
+                                                    "example": 900000
+                                                },
+                                                "path": {
+                                                    "description": "Array of [longitude, latitude] coordinates for the route",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "number"
+                                                        }
+                                                    }
+                                                },
+                                                "tollFare": {
+                                                    "description": "Toll fee in KRW (if applicable)",
+                                                    "type": "integer",
+                                                    "example": 1000
+                                                },
+                                                "taxiFare": {
+                                                    "description": "Estimated taxi fare in KRW",
+                                                    "type": "integer",
+                                                    "example": 15000
+                                                },
+                                                "fuelPrice": {
+                                                    "description": "Estimated fuel cost in KRW",
+                                                    "type": "integer",
+                                                    "example": 800
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Route not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Route not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/maps/directions-waypoints": {
+            "post": {
+                "tags": [
+                    "Maps"
+                ],
+                "summary": "Get driving directions with up to 15 waypoints",
+                "description": "Uses NAVER Maps Directions 15 API to calculate optimal driving route through multiple waypoints. Supports up to 15 intermediate stops.",
+                "operationId": "d7836138d70cf0e434b6601eb9773dd4",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "start_lat",
+                                    "start_lng",
+                                    "goal_lat",
+                                    "goal_lng"
+                                ],
+                                "properties": {
+                                    "start_lat": {
+                                        "description": "Start latitude",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 37.5665
+                                    },
+                                    "start_lng": {
+                                        "description": "Start longitude",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 126.978
+                                    },
+                                    "goal_lat": {
+                                        "description": "Goal latitude",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 37.5172
+                                    },
+                                    "goal_lng": {
+                                        "description": "Goal longitude",
+                                        "type": "number",
+                                        "format": "double",
+                                        "example": 127.0473
+                                    },
+                                    "waypoints": {
+                                        "description": "Array of waypoint objects with lat and lng properties (max 15)",
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "lat": {
+                                                    "type": "number",
+                                                    "format": "double",
+                                                    "example": 37.54
+                                                },
+                                                "lng": {
+                                                    "type": "number",
+                                                    "format": "double",
+                                                    "example": 127
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "example": [
+                                            {
+                                                "lat": 37.54,
+                                                "lng": 127
+                                            },
+                                            {
+                                                "lat": 37.53,
+                                                "lng": 127.02
+                                            }
+                                        ]
+                                    },
+                                    "option": {
+                                        "description": "Route option",
+                                        "type": "string",
+                                        "enum": [
+                                            "trafast",
+                                            "traoptimal",
+                                            "tracomfort",
+                                            "traavoidtoll",
+                                            "traavoidcaronly"
+                                        ],
+                                        "example": "traoptimal"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Directions with waypoints calculated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "distance": {
+                                                    "description": "Total distance in meters",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "duration": {
+                                                    "description": "Estimated duration in milliseconds",
+                                                    "type": "integer",
+                                                    "example": 1800000
+                                                },
+                                                "path": {
+                                                    "description": "Array of [longitude, latitude] coordinates for the entire route",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "number"
+                                                        }
+                                                    }
+                                                },
+                                                "tollFare": {
+                                                    "description": "Toll fee in KRW (if applicable)",
+                                                    "type": "integer",
+                                                    "example": 2000
+                                                },
+                                                "taxiFare": {
+                                                    "description": "Estimated taxi fare in KRW",
+                                                    "type": "integer",
+                                                    "example": 30000
+                                                },
+                                                "fuelPrice": {
+                                                    "description": "Estimated fuel cost in KRW",
+                                                    "type": "integer",
+                                                    "example": 1500
+                                                },
+                                                "waypoints_count": {
+                                                    "description": "Number of waypoints in route",
+                                                    "type": "integer",
+                                                    "example": 2
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Route not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Route not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/notifications": {
             "get": {
                 "tags": [
@@ -3018,6 +3678,643 @@
                 ]
             }
         },
+        "/api/search-trends/keywords": {
+            "post": {
+                "tags": [
+                    "Search Trends"
+                ],
+                "summary": "Get keyword search trends over time",
+                "description": "Analyze search volume trends for one or more keywords with optional demographic and device filters",
+                "operationId": "getKeywordTrends",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "keywords",
+                                    "start_date",
+                                    "end_date"
+                                ],
+                                "properties": {
+                                    "keywords": {
+                                        "description": "Array of keywords to analyze (max 20 keywords)",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "제주도 여행",
+                                            "부산 여행"
+                                        ]
+                                    },
+                                    "start_date": {
+                                        "description": "Start date (YYYY-MM-DD)",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-01-01"
+                                    },
+                                    "end_date": {
+                                        "description": "End date (YYYY-MM-DD)",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-31"
+                                    },
+                                    "time_unit": {
+                                        "description": "Time aggregation unit",
+                                        "type": "string",
+                                        "enum": [
+                                            "date",
+                                            "week",
+                                            "month"
+                                        ],
+                                        "example": "month"
+                                    },
+                                    "device": {
+                                        "description": "Device filter: empty string or omit = all devices, 'pc' = PC only, 'mo' = mobile only",
+                                        "type": "string",
+                                        "enum": [
+                                            "",
+                                            "pc",
+                                            "mo"
+                                        ],
+                                        "example": ""
+                                    },
+                                    "gender": {
+                                        "description": "Gender filter (optional)",
+                                        "type": "string",
+                                        "enum": [
+                                            "m",
+                                            "f"
+                                        ],
+                                        "example": "f"
+                                    },
+                                    "ages": {
+                                        "description": "Age group filters: 1=0-12, 2=13-18, 3=19-24, 4=25-29, 5=30-34, 6=35-39, 7=40-44, 8=45-49, 9=50-54, 10=55-59, 11=60+",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "3",
+                                            "4",
+                                            "5"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful trend data retrieval",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "startDate": {
+                                                    "type": "string",
+                                                    "example": "2024-01-01"
+                                                },
+                                                "endDate": {
+                                                    "type": "string",
+                                                    "example": "2024-12-31"
+                                                },
+                                                "timeUnit": {
+                                                    "type": "string",
+                                                    "example": "month"
+                                                },
+                                                "results": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "title": {
+                                                                "type": "string",
+                                                                "example": "제주도 여행"
+                                                            },
+                                                            "keywords": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "string",
+                                                                    "example": "제주도 여행"
+                                                                }
+                                                            },
+                                                            "data": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "properties": {
+                                                                        "period": {
+                                                                            "type": "string",
+                                                                            "example": "2024-01"
+                                                                        },
+                                                                        "ratio": {
+                                                                            "type": "number",
+                                                                            "format": "float",
+                                                                            "example": 85.5
+                                                                        }
+                                                                    },
+                                                                    "type": "object"
+                                                                }
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "API error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/search-trends/compare": {
+            "post": {
+                "tags": [
+                    "Search Trends"
+                ],
+                "summary": "Compare multiple keyword groups",
+                "description": "Compare search trends for up to 5 different keyword groups simultaneously",
+                "operationId": "compareKeywords",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "keyword_groups",
+                                    "start_date",
+                                    "end_date"
+                                ],
+                                "properties": {
+                                    "keyword_groups": {
+                                        "description": "Array of keyword arrays (max 5 groups)",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "example": [
+                                            [
+                                                "제주도 여행"
+                                            ],
+                                            [
+                                                "부산 여행"
+                                            ],
+                                            [
+                                                "강릉 여행"
+                                            ]
+                                        ]
+                                    },
+                                    "start_date": {
+                                        "description": "Start date (YYYY-MM-DD)",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-01-01"
+                                    },
+                                    "end_date": {
+                                        "description": "End date (YYYY-MM-DD)",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-31"
+                                    },
+                                    "time_unit": {
+                                        "description": "Time aggregation unit",
+                                        "type": "string",
+                                        "enum": [
+                                            "date",
+                                            "week",
+                                            "month"
+                                        ],
+                                        "example": "month"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful comparison data retrieval",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "description": "Comparison results for all keyword groups",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "API error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/search-trends/demographics": {
+            "post": {
+                "tags": [
+                    "Search Trends"
+                ],
+                "summary": "Get age and gender demographic trends",
+                "description": "Analyze search trends broken down by age groups and gender",
+                "operationId": "getAgeGenderTrends",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "keywords",
+                                    "start_date",
+                                    "end_date"
+                                ],
+                                "properties": {
+                                    "keywords": {
+                                        "description": "Keywords to analyze",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "제주도 여행"
+                                        ]
+                                    },
+                                    "start_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-01-01"
+                                    },
+                                    "end_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-31"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Demographic breakdown retrieved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "API error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/search-trends/devices": {
+            "post": {
+                "tags": [
+                    "Search Trends"
+                ],
+                "summary": "Get device usage trends",
+                "description": "Analyze search trends broken down by device type (mobile vs PC)",
+                "operationId": "getDeviceTrends",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "keywords",
+                                    "start_date",
+                                    "end_date"
+                                ],
+                                "properties": {
+                                    "keywords": {
+                                        "description": "Keywords to analyze",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "제주도 여행"
+                                        ]
+                                    },
+                                    "start_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-01-01"
+                                    },
+                                    "end_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-31"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Device breakdown retrieved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "API error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/search-trends/destination-popularity": {
+            "post": {
+                "tags": [
+                    "Search Trends"
+                ],
+                "summary": "Analyze travel destination popularity",
+                "description": "Analyze destination search trends with peak period detection",
+                "operationId": "analyzeDestinationPopularity",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "destination",
+                                    "start_date",
+                                    "end_date"
+                                ],
+                                "properties": {
+                                    "destination": {
+                                        "description": "Destination keyword",
+                                        "type": "string",
+                                        "example": "제주도 여행"
+                                    },
+                                    "start_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-01-01"
+                                    },
+                                    "end_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-31"
+                                    },
+                                    "time_unit": {
+                                        "type": "string",
+                                        "enum": [
+                                            "date",
+                                            "week",
+                                            "month"
+                                        ],
+                                        "example": "month"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Destination popularity analysis retrieved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "keyword": {
+                                                    "type": "string",
+                                                    "example": "제주도 여행"
+                                                },
+                                                "peak_period": {
+                                                    "type": "string",
+                                                    "example": "2024-08"
+                                                },
+                                                "peak_ratio": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 95.5
+                                                },
+                                                "total_data_points": {
+                                                    "type": "integer",
+                                                    "example": 12
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "API error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/search-trends/seasonal-insights": {
+            "post": {
+                "tags": [
+                    "Search Trends"
+                ],
+                "summary": "Get seasonal travel insights",
+                "description": "Analyze seasonal patterns with summer/winter peak detection",
+                "operationId": "getSeasonalInsights",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "keyword"
+                                ],
+                                "properties": {
+                                    "keyword": {
+                                        "description": "Travel keyword to analyze",
+                                        "type": "string",
+                                        "example": "제주도 여행"
+                                    },
+                                    "months": {
+                                        "description": "Number of months to analyze (default: 12)",
+                                        "type": "integer",
+                                        "maximum": 36,
+                                        "minimum": 1,
+                                        "example": 12
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Seasonal insights retrieved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "keyword": {
+                                                    "type": "string",
+                                                    "example": "제주도 여행"
+                                                },
+                                                "summer_peak": {
+                                                    "properties": {
+                                                        "period": {
+                                                            "type": "string",
+                                                            "example": "2024-08"
+                                                        },
+                                                        "ratio": {
+                                                            "type": "number",
+                                                            "example": 95.5
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "winter_peak": {
+                                                    "properties": {
+                                                        "period": {
+                                                            "type": "string",
+                                                            "example": "2024-01"
+                                                        },
+                                                        "ratio": {
+                                                            "type": "number",
+                                                            "example": 75.2
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "API error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/trips/{trip}/shares": {
             "get": {
                 "tags": [
@@ -3644,9 +4941,10 @@
                                         "example": "안녕하세요"
                                     },
                                     "source_language": {
-                                        "description": "Source language code (auto-detect if omitted)",
+                                        "description": "Source language code (optional: auto-detect if omitted)",
                                         "type": "string",
-                                        "example": "ko"
+                                        "example": "ko",
+                                        "nullable": true
                                     },
                                     "target_language": {
                                         "description": "Target language code",
@@ -3689,13 +4987,82 @@
                 ]
             }
         },
+        "/api/translations/image": {
+            "post": {
+                "tags": [
+                    "Translations"
+                ],
+                "summary": "Translate image text using NAVER Papago Image Translation (OCR + Translation in one call)",
+                "description": "Translate image using Papago Image Translation API (RECOMMENDED)",
+                "operationId": "42e02fe716ff7e2106ae076874b4750e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "image",
+                                    "target_language"
+                                ],
+                                "properties": {
+                                    "image": {
+                                        "description": "Image file (max 10MB)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "source_language": {
+                                        "description": "Source language (optional: auto-detect if omitted)",
+                                        "type": "string",
+                                        "example": "ko",
+                                        "nullable": true
+                                    },
+                                    "target_language": {
+                                        "type": "string",
+                                        "example": "en"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Image translated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Translation"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/translations/ocr": {
             "post": {
                 "tags": [
                     "Translations"
                 ],
-                "summary": "Extract text from image and translate using NAVER Clova OCR + Papago",
-                "description": "Extract text from image via OCR and translate",
+                "summary": "Extract text from image and translate using NAVER Clova OCR + Papago (Legacy)",
+                "description": "Extract text from image via OCR and translate (Legacy - use /image instead)",
                 "operationId": "c72dba4c739b16d40bbcca4a795266b8",
                 "requestBody": {
                     "required": true,
@@ -3713,8 +5080,10 @@
                                         "format": "binary"
                                     },
                                     "source_language": {
+                                        "description": "Source language (optional: auto-detect if omitted)",
                                         "type": "string",
-                                        "example": "ko"
+                                        "example": "ko",
+                                        "nullable": true
                                     },
                                     "target_language": {
                                         "type": "string",
@@ -3780,8 +5149,10 @@
                                         "format": "binary"
                                     },
                                     "source_language": {
+                                        "description": "Source language (optional: auto-detect if omitted)",
                                         "type": "string",
-                                        "example": "ko"
+                                        "example": "ko",
+                                        "nullable": true
                                     },
                                     "target_language": {
                                         "type": "string",
@@ -5894,6 +7265,14 @@
     },
     "tags": [
         {
+            "name": "Search Trends",
+            "description": "NAVER DataLab Search Trend API - Analyze keyword search trends, demographics, and seasonal patterns"
+        },
+        {
+            "name": "Authentication",
+            "description": "Authentication"
+        },
+        {
             "name": "Checklist Items",
             "description": "Checklist Items"
         },
@@ -5916,6 +7295,10 @@
         {
             "name": "Map Checkpoints",
             "description": "Map Checkpoints"
+        },
+        {
+            "name": "Maps",
+            "description": "Maps"
         },
         {
             "name": "Notifications",

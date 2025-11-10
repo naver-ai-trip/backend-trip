@@ -113,7 +113,7 @@ class Review extends Model
         }
 
         return array_map(function ($path) {
-            return \Illuminate\Support\Facades\Storage::url($path);
+            return \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_disk'))->url($path);
         }, $this->images);
     }
 }

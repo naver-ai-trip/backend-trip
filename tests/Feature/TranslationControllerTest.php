@@ -121,7 +121,7 @@ class TranslationControllerTest extends TestCase
             ->postJson('/api/translations/text', []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['text', 'source_language', 'target_language']);
+            ->assertJsonValidationErrors(['text', 'target_language']); // source_language is nullable (auto-detect)
     }
 
     /** @test */
@@ -136,6 +136,109 @@ class TranslationControllerTest extends TestCase
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['text']);
+    }
+
+    /** @test */
+    public function it_can_translate_image_using_papago_image_api()
+    {
+        $image = UploadedFile::fake()->image('menu.jpg');
+
+        $this->mock(PapagoService::class, function ($mock) {
+            $mock->shouldReceive('translateImage')
+                ->once()
+                ->andReturn([
+                    'translatedText' => 'Coffee Menu',
+                    'detectedText' => '커피 메뉴',
+                    'sourceLang' => 'ko',
+                    'targetLang' => 'en',
+                ]);
+        });
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/translations/image', [
+                'image' => $image,
+                'source_language' => 'ko',
+                'target_language' => 'en',
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonFragment([
+                'source_type' => 'image',
+                'source_text' => '커피 메뉴',
+                'source_language' => 'ko',
+                'translated_text' => 'Coffee Menu',
+                'target_language' => 'en',
+            ])
+            ->assertJsonPath('data.file_path', fn($path) => str_contains($path, 'translations/'));
+
+        $this->assertDatabaseHas('translations', [
+            'user_id' => $this->user->id,
+            'source_type' => 'image',
+            'source_text' => '커피 메뉴',
+            'translated_text' => 'Coffee Menu',
+        ]);
+
+        Storage::disk(config('filesystems.public_disk'))->assertExists(
+            $response->json('data.file_path')
+        );
+    }
+
+    /** @test */
+    public function it_can_translate_image_with_auto_detect()
+    {
+        $image = UploadedFile::fake()->image('sign.jpg');
+
+        $this->mock(PapagoService::class, function ($mock) {
+            $mock->shouldReceive('translateImage')
+                ->once()
+                ->andReturn([
+                    'translatedText' => 'Exit',
+                    'detectedText' => '出口',
+                    'sourceLang' => 'zh-CN',
+                    'targetLang' => 'en',
+                ]);
+        });
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/translations/image', [
+                'image' => $image,
+                'source_language' => 'auto',
+                'target_language' => 'en',
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonFragment([
+                'source_text' => '出口',
+                'translated_text' => 'Exit',
+                'target_language' => 'en',
+            ]);
+    }
+
+    /** @test */
+    public function it_requires_authentication_for_image_translation()
+    {
+        $image = UploadedFile::fake()->image('test.jpg');
+
+        $response = $this->postJson('/api/translations/image', [
+            'image' => $image,
+            'source_language' => 'ko',
+            'target_language' => 'en',
+        ]);
+
+        $response->assertUnauthorized();
+    }
+
+    /** @test */
+    public function it_validates_image_file_for_image_translation()
+    {
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/translations/image', [
+                'source_language' => 'ko',
+                'target_language' => 'en',
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['image']);
     }
 
     /** @test */
@@ -186,7 +289,7 @@ class TranslationControllerTest extends TestCase
             'source_text' => 'Total: $50.00',
         ]);
 
-        Storage::disk('public')->assertExists(
+        Storage::disk(config('filesystems.public_disk'))->assertExists(
             $response->json('data.file_path')
         );
     }
@@ -212,7 +315,7 @@ class TranslationControllerTest extends TestCase
             ->postJson('/api/translations/ocr', []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['image', 'source_language', 'target_language']);
+            ->assertJsonValidationErrors(['image', 'target_language']); // source_language is nullable (auto-detect)
     }
 
     /** @test */
@@ -295,7 +398,7 @@ class TranslationControllerTest extends TestCase
             'source_text' => '오늘 날씨가 좋습니다',
         ]);
 
-        Storage::disk('public')->assertExists(
+        Storage::disk(config('filesystems.public_disk'))->assertExists(
             $response->json('data.file_path')
         );
     }
@@ -321,7 +424,7 @@ class TranslationControllerTest extends TestCase
             ->postJson('/api/translations/speech', []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['audio', 'source_language', 'target_language']);
+            ->assertJsonValidationErrors(['audio', 'target_language']); // source_language is nullable (auto-detect)
     }
 
     /** @test */
@@ -486,7 +589,7 @@ class TranslationControllerTest extends TestCase
             'file_path' => 'translations/test.jpg',
         ]);
 
-        Storage::disk('public')->put($translation->file_path, 'test content');
+        Storage::disk(config('filesystems.public_disk'))->put($translation->file_path, 'test content');
 
         $response = $this->actingAs($this->user, 'sanctum')
             ->deleteJson("/api/translations/{$translation->id}");
@@ -497,7 +600,7 @@ class TranslationControllerTest extends TestCase
             'id' => $translation->id,
         ]);
 
-        Storage::disk('public')->assertMissing($translation->file_path);
+        Storage::disk(config('filesystems.public_disk'))->assertMissing($translation->file_path);
     }
 
     /** @test */

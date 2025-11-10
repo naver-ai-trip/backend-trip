@@ -149,8 +149,8 @@ class ReviewController extends Controller
                 $extension = $image->getClientOriginalExtension();
                 $path = "reviews/{$review->id}/{$uuid}.{$extension}";
 
-                // Upload to storage
-                Storage::disk('public')->put($path, file_get_contents($image->getRealPath()));
+                // Upload to public storage
+                Storage::disk(config('filesystems.public_disk'))->put($path, file_get_contents($image->getRealPath()));
                 $imagePaths[] = $path;
 
                 // Dispatch job for asynchronous moderation

@@ -23,7 +23,7 @@ class TranslationResource extends JsonResource
             'translated_text' => $this->translated_text,
             'target_language' => $this->target_language,
             'file_path' => $this->file_path,
-            'file_url' => $this->file_path ? Storage::url($this->file_path) : null,
+            'file_url' => $this->file_path ? Storage::disk(config('filesystems.public_disk'))->url($this->file_path) : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

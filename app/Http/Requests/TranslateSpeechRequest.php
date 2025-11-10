@@ -23,7 +23,7 @@ class TranslateSpeechRequest extends FormRequest
     {
         return [
             'audio' => ['required', 'file', 'mimes:audio/mpeg,audio/wav,audio/mp4,mpga,mp3,wav,m4a', 'max:20480'], // 20MB in KB
-            'source_language' => ['required', 'string'],
+            'source_language' => ['nullable', 'string'], // Optional: auto-detect if not provided
             'target_language' => ['required', 'string'],
         ];
     }

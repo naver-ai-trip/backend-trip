@@ -11,9 +11,16 @@ class TripParticipantPolicy
     /**
      * Determine whether the user can view any models.
      */
-    public function viewAny(User $user, Trip $trip): bool
+    public function viewAny(User $user, ?Trip $trip = null): bool
     {
-        // Trip owner OR participant can view participants
+        // When called from Filament without a specific trip (navigation menu, resource index)
+        // allow all authenticated users to access the index page
+        if ($trip === null) {
+            return true;
+        }
+
+        // When viewing participants of a specific trip,
+        // only trip owner OR participants can view trip participants
         return $trip->user_id === $user->id ||
                $trip->participants()->where('user_id', $user->id)->exists();
     }
@@ -32,10 +39,10 @@ class TripParticipantPolicy
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user, Trip $trip): bool
+    public function create(User $user): bool
     {
-        // Only trip owner can add participants
-        return $trip->user_id === $user->id;
+        // All authenticated users can add participants to their trips
+        return true;
     }
 
     /**

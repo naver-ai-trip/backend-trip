@@ -66,7 +66,7 @@ class CheckpointImage extends Model
     
     public function getUrlAttribute(): string
     {
-        return Storage::url($this->file_path);
+        return Storage::disk(config('filesystems.public_disk'))->url($this->file_path);
     }
 
     /**

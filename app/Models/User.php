@@ -28,6 +28,7 @@ class User extends Authenticatable
         'avatar_path',
         'trip_style',
         'naver_id',
+        'email_verified_at',
     ];
 
     /**

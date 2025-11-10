@@ -26,9 +26,9 @@ class PlaceSearchTest extends TestCase
         $this->user = User::factory()->create();
 
         // Enable NAVER Local Search for tests
-        config(['services.naver.local_search.enabled' => true]);
-        config(['services.naver.local_search.client_id' => 'test_client_id']);
-        config(['services.naver.local_search.client_secret' => 'test_client_secret']);
+        config(['services.naver_developers.local_search.enabled' => true]);
+        config(['services.naver_developers.local_search.client_id' => 'test_client_id']);
+        config(['services.naver_developers.local_search.client_secret' => 'test_client_secret']);
     }
 
     /** @test */

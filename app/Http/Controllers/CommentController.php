@@ -144,8 +144,8 @@ class CommentController extends Controller
                 $extension = $image->getClientOriginalExtension();
                 $path = "comments/{$comment->id}/{$uuid}.{$extension}";
 
-                // Upload to storage
-                Storage::disk('public')->put($path, file_get_contents($image->getRealPath()));
+                // Upload to public storage
+                Storage::disk(config('filesystems.public_disk'))->put($path, file_get_contents($image->getRealPath()));
                 $imagePaths[] = $path;
 
                 // Dispatch job for asynchronous moderation

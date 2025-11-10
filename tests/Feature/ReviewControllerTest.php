@@ -636,7 +636,7 @@ class ReviewControllerTest extends TestCase
         
         // Verify files were stored
         foreach ($review->images as $imagePath) {
-            Storage::disk('public')->assertExists($imagePath);
+            Storage::disk(config('filesystems.public_disk'))->assertExists($imagePath);
         }
     }
 

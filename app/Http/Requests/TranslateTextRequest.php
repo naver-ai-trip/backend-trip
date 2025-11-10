@@ -23,7 +23,7 @@ class TranslateTextRequest extends FormRequest
     {
         return [
             'text' => ['required', 'string', 'max:5000'],
-            'source_language' => ['required', 'string'],
+            'source_language' => ['nullable', 'string'], // Optional: auto-detect if not provided
             'target_language' => ['required', 'string'],
         ];
     }

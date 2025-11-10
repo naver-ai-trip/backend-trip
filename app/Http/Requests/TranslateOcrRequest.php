@@ -23,7 +23,7 @@ class TranslateOcrRequest extends FormRequest
     {
         return [
             'image' => ['required', 'file', 'mimes:jpeg,png,jpg,gif,webp', 'max:10240'], // 10MB in KB
-            'source_language' => ['required', 'string'],
+            'source_language' => ['nullable', 'string'], // Optional: auto-detect if not provided
             'target_language' => ['required', 'string'],
         ];
     }

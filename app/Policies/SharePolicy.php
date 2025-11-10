@@ -11,18 +11,36 @@ class SharePolicy
     /**
      * Determine whether the user can view any models.
      */
-    public function viewAny(User $user, Trip $trip): bool
+    public function viewAny(User $user, ?Trip $trip = null): bool
     {
-        // Only trip owner can view shares for the trip
-        return $trip->user_id === $user->id;
+        // If a trip is provided, only the trip owner can view its shares.
+        // If no trip is provided (class-level check), deny by default.
+        if ($trip instanceof Trip) {
+            return $trip->user_id === $user->id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether the user can view the model.
+     */
+    public function view(User $user, Share $share): bool
+    {
+        // Owner of the trip can view the share
+        return $share->trip->user_id === $user->id || $share->user_id === $user->id;
     }
 
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user, Trip $trip): bool
+    public function create(User $user, ?Trip $trip = null): bool
     {
-        // Only trip owner can create share links
+        // Require a trip to be provided and only allow the trip owner to create shares
+        if (! $trip instanceof Trip) {
+            return false;
+        }
+
         return $trip->user_id === $user->id;
     }
 

@@ -13,16 +13,16 @@ use Illuminate\Support\Facades\Log;
  */
 class LocalSearchService
 {
-    private string $clientId;
-    private string $clientSecret;
+    private ?string $clientId;
+    private ?string $clientSecret;
     private string $baseUrl = 'https://openapi.naver.com/v1/search/local.json';
     private bool $enabled;
 
     public function __construct()
     {
-        $this->clientId = config('services.naver.local_search.client_id', '');
-        $this->clientSecret = config('services.naver.local_search.client_secret', '');
-        $this->enabled = config('services.naver.local_search.enabled', false);
+        $this->clientId = config('services.naver_developers.local_search.client_id');
+        $this->clientSecret = config('services.naver_developers.local_search.client_secret');
+        $this->enabled = config('services.naver_developers.local_search.enabled', false);
     }
 
     /**
@@ -53,7 +53,7 @@ class LocalSearchService
             $response = Http::withHeaders($this->getHeaders())
                 ->get($this->baseUrl, [
                     'query' => $query,
-                    'display' => min($display, 5), // NAVER API max is 5
+                    'display' => min($display, 5), 
                 ]);
 
             if ($response->successful()) {

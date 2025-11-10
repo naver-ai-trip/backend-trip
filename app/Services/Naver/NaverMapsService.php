@@ -34,10 +34,11 @@ class NaverMapsService extends NaverBaseService
 
         $this->logApiCall('GET', 'geocode', ['query' => $query]);
 
+        // Send query as URL parameter, not form data
+        $url = '/map-geocode/v2/geocode?' . http_build_query(['query' => $query]);
+        
         $response = $this->client()
-            ->get('/map-geocode/v2/geocode', [
-                'query' => $query,
-            ]);
+            ->get($url);
 
         $data = $this->handleResponse($response, 'geocode');
 
@@ -80,12 +81,15 @@ class NaverMapsService extends NaverBaseService
 
         $coords = "{$longitude},{$latitude}";
 
+        // Send params as URL parameters
+        $url = '/map-reversegeocode/v2/gc?' . http_build_query([
+            'coords' => $coords,
+            'output' => 'json',
+            'orders' => 'roadaddr,addr',
+        ]);
+
         $response = $this->client()
-            ->get('/map-reversegeocode/v2/gc', [
-                'coords' => $coords,
-                'output' => 'json',
-                'orders' => 'roadaddr,addr',
-            ]);
+            ->get($url);
 
         $data = $this->handleResponse($response, 'reverse-geocode');
 
@@ -109,6 +113,149 @@ class NaverMapsService extends NaverBaseService
     }
 
     /**
+     * Get Directions 5 (up to 5 waypoints)
+     * Calculate optimal route between two points with optional parameters
+     *
+     * Documentation: https://api.ncloud-docs.com/docs/ai-naver-mapsdirections-driving
+     *
+     * @param float $startLat Starting latitude
+     * @param float $startLng Starting longitude
+     * @param float $goalLat Goal latitude
+     * @param float $goalLng Goal longitude
+     * @param array $options Additional options (option, avoid, etc.)
+     * @return array{distance: int, duration: int, path: array, tollFare: int, taxiFare: int, fuelPrice: int}|null
+     */
+    public function getDirections5(
+        float $startLat,
+        float $startLng,
+        float $goalLat,
+        float $goalLng,
+        array $options = []
+    ): ?array {
+        if (!$this->isEnabled()) {
+            return null;
+        }
+
+        $this->logApiCall('GET', 'directions-5', [
+            'start' => "{$startLat},{$startLng}",
+            'goal' => "{$goalLat},{$goalLng}",
+            'options' => $options,
+        ]);
+
+        $params = array_merge([
+            'start' => "{$startLng},{$startLat}",
+            'goal' => "{$goalLng},{$goalLat}",
+            'option' => 'traoptimal', // Default: traffic-optimized
+        ], $options);
+
+        // Send params as URL parameters
+        $url = '/map-direction/v1/driving?' . http_build_query($params);
+
+        $response = $this->client()
+            ->get($url);
+
+        $data = $this->handleResponse($response, 'directions-5');
+
+        // Get the route based on option type
+        $option = $params['option'];
+        if (empty($data['route'][$option])) {
+            return null;
+        }
+
+        $route = $data['route'][$option][0];
+        $summary = $route['summary'];
+
+        return [
+            'distance' => (int) $summary['distance'], // meters
+            'duration' => (int) $summary['duration'], // milliseconds
+            'path' => $route['path'] ?? [],
+            'tollFare' => (int) ($summary['tollFare'] ?? 0),
+            'taxiFare' => (int) ($summary['taxiFare'] ?? 0),
+            'fuelPrice' => (int) ($summary['fuelPrice'] ?? 0),
+            'departureTime' => $summary['departureTime'] ?? null,
+            'bbox' => $summary['bbox'] ?? [],
+        ];
+    }
+
+    /**
+     * Get Directions 15 (up to 15 waypoints)
+     * Calculate optimal route with multiple waypoints
+     *
+     * Documentation: https://api.ncloud-docs.com/docs/ai-naver-mapsdirections15-driving
+     *
+     * @param float $startLat Starting latitude
+     * @param float $startLng Starting longitude
+     * @param float $goalLat Goal latitude
+     * @param float $goalLng Goal longitude
+     * @param array $waypoints Array of waypoints [['lat' => 37.5, 'lng' => 127.0], ...]
+     * @param array $options Additional options (option, avoid, etc.)
+     * @return array{distance: int, duration: int, path: array, waypoints: array, tollFare: int, taxiFare: int, fuelPrice: int}|null
+     */
+    public function getDirections15(
+        float $startLat,
+        float $startLng,
+        float $goalLat,
+        float $goalLng,
+        array $waypoints = [],
+        array $options = []
+    ): ?array {
+        if (!$this->isEnabled()) {
+            return null;
+        }
+
+        $this->logApiCall('GET', 'directions-15', [
+            'start' => "{$startLat},{$startLng}",
+            'goal' => "{$goalLat},{$goalLng}",
+            'waypoints' => count($waypoints),
+            'options' => $options,
+        ]);
+
+        $params = array_merge([
+            'start' => "{$startLng},{$startLat}",
+            'goal' => "{$goalLng},{$goalLat}",
+            'option' => 'traoptimal', // Default: traffic-optimized
+        ], $options);
+
+        // Add waypoints if provided (max 15)
+        if (!empty($waypoints)) {
+            $waypointStrings = array_map(function ($wp) {
+                return "{$wp['lng']},{$wp['lat']}";
+            }, array_slice($waypoints, 0, 15)); // Limit to 15 waypoints
+
+            $params['waypoints'] = implode(':', $waypointStrings);
+        }
+
+        // Send params as URL parameters
+        $url = '/map-direction-15/v1/driving?' . http_build_query($params);
+
+        $response = $this->client()
+            ->get($url);
+
+        $data = $this->handleResponse($response, 'directions-15');
+
+        // Get the route based on option type
+        $option = $params['option'];
+        if (empty($data['route'][$option])) {
+            return null;
+        }
+
+        $route = $data['route'][$option][0];
+        $summary = $route['summary'];
+
+        return [
+            'distance' => (int) $summary['distance'], // meters
+            'duration' => (int) $summary['duration'], // milliseconds
+            'path' => $route['path'] ?? [],
+            'waypoints' => $summary['waypoints'] ?? [],
+            'tollFare' => (int) ($summary['tollFare'] ?? 0),
+            'taxiFare' => (int) ($summary['taxiFare'] ?? 0),
+            'fuelPrice' => (int) ($summary['fuelPrice'] ?? 0),
+            'departureTime' => $summary['departureTime'] ?? null,
+            'bbox' => $summary['bbox'] ?? [],
+        ];
+    }
+
+    /**
      * Calculate distance between two points
      *
      * @param float $fromLat
@@ -128,12 +275,15 @@ class NaverMapsService extends NaverBaseService
             'to' => "{$toLat},{$toLng}",
         ]);
 
+        // Send params as URL parameters
+        $url = '/map-direction/v1/driving?' . http_build_query([
+            'start' => "{$fromLng},{$fromLat}",
+            'goal' => "{$toLng},{$toLat}",
+            'option' => 'trafast', // Traffic-optimized fastest route
+        ]);
+
         $response = $this->client()
-            ->get('/map-direction/v1/driving', [
-                'start' => "{$fromLng},{$fromLat}",
-                'goal' => "{$toLng},{$toLat}",
-                'option' => 'trafast', // Traffic-optimized fastest route
-            ]);
+            ->get($url);
 
         $data = $this->handleResponse($response, 'distance');
 

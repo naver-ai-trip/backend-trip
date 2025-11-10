@@ -37,11 +37,47 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Social Login (OAuth)
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for social login providers (Google, NAVER, etc.)
+    |
+    */
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/auth/google/callback'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | NAVER Developers (openapi.naver.com)
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for NAVER Developers APIs (Client ID/Secret based)
+    | Documentation: https://developers.naver.com/
+    | Registration: https://developers.naver.com/apps/#/register
+    |
+    */
+
+    'naver_developers' => [
+        // NAVER Local Search API - Place search (openapi.naver.com)
+        'local_search' => [
+            'client_id' => env('NAVER_DEVELOPERS_CLIENT_ID'),
+            'client_secret' => env('NAVER_DEVELOPERS_CLIENT_SECRET'),
+            'enabled' => env('NAVER_LOCAL_SEARCH_ENABLED', true),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | NAVER Cloud Platform Services
     |--------------------------------------------------------------------------
     |
-    | Configuration for NAVER Cloud Platform APIs
+    | Configuration for NAVER Cloud Platform APIs (NCP - ntruss.com)
     | Documentation: https://guide.ncloud-docs.com/docs/en
+    | Console: https://console.ncloud.com/
     |
     */
 
@@ -54,20 +90,13 @@ return [
             'enabled' => env('NAVER_MAPS_ENABLED', true),
         ],
 
-        // NAVER Local Search API - Place search
-        'local_search' => [
-            'client_id' => env('NAVER_LOCAL_SEARCH_CLIENT_ID', env('NAVER_MAPS_CLIENT_ID')),
-            'client_secret' => env('NAVER_LOCAL_SEARCH_CLIENT_SECRET', env('NAVER_MAPS_CLIENT_SECRET')),
-            'enabled' => env('NAVER_LOCAL_SEARCH_ENABLED', true),
-        ],
-
         // Papago Translation API
     'papago' => [
         'client_id' => env('NAVER_PAPAGO_CLIENT_ID'),
         'client_secret' => env('NAVER_PAPAGO_CLIENT_SECRET'),
         'base_url' => 'https://papago.apigw.ntruss.com',
         'enabled' => env('NAVER_PAPAGO_ENABLED', true),
-    ],        // Clova OCR API
+        ],        // Clova OCR API
         'ocr' => [
             'url' => env('NAVER_CLOVA_OCR_URL'),
             'secret_key' => env('NAVER_CLOVA_OCR_SECRET_KEY'),

@@ -17,6 +17,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public Filesystem Disk
+    |--------------------------------------------------------------------------
+    |
+    | This disk is used for storing user-uploaded files that need to be
+    | publicly accessible (images, audio files, etc.). By default, it uses
+    | the 'public' disk, but can be configured to use cloud storage (S3, etc.)
+    | for production deployments.
+    |
+    */
+
+    'public_disk' => env('FILESYSTEM_PUBLIC_DISK', 'public'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

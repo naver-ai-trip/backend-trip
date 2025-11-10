@@ -82,7 +82,7 @@ class CheckpointImageControllerTest extends TestCase
 
         // Verify file was stored
         $image = CheckpointImage::first();
-        Storage::disk('public')->assertExists($image->file_path);
+        Storage::disk(config('filesystems.public_disk'))->assertExists($image->file_path);
     }
 
     /** @test */
@@ -188,7 +188,7 @@ class CheckpointImageControllerTest extends TestCase
         $filePath = $uploadResponse->json('data.file_path');
         
         // Verify file exists before deletion
-        $this->assertTrue(Storage::disk('public')->exists($filePath));
+        $this->assertTrue(Storage::disk(config('filesystems.public_disk'))->exists($filePath));
 
         // Now delete it
         $response = $this->actingAs($this->user, 'sanctum')
@@ -199,7 +199,7 @@ class CheckpointImageControllerTest extends TestCase
         $this->assertDatabaseMissing('checkpoint_images', ['id' => $imageId]);
         
         // Verify file was deleted from storage
-        $this->assertFalse(Storage::disk('public')->exists($filePath));
+        $this->assertFalse(Storage::disk(config('filesystems.public_disk'))->exists($filePath));
     }
 
     /** @test */
@@ -318,7 +318,7 @@ class CheckpointImageControllerTest extends TestCase
         // Upload image as otherUser first
         $file = UploadedFile::fake()->image('other-user-image.jpg');
         $filePath = "checkpoints/{$this->trip->id}/{$this->checkpoint->id}/test-" . time() . ".jpg";
-        Storage::disk('public')->put($filePath, file_get_contents($file));
+        Storage::disk(config('filesystems.public_disk'))->put($filePath, file_get_contents($file));
 
         // Image uploaded by someone else
         $image = CheckpointImage::factory()->create([
@@ -333,7 +333,7 @@ class CheckpointImageControllerTest extends TestCase
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('checkpoint_images', ['id' => $image->id]);
-        $this->assertFalse(Storage::disk('public')->exists($filePath));
+        $this->assertFalse(Storage::disk(config('filesystems.public_disk'))->exists($filePath));
     }
 
     /** @test */

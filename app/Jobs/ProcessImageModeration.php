@@ -60,7 +60,7 @@ class ProcessImageModeration implements ShouldQueue
 
             // Only verify storage existence for local paths
             if (!$isExternalUrl) {
-                if (!Storage::disk('public')->exists($this->imagePath)) {
+                if (!Storage::disk(config('filesystems.public_disk'))->exists($this->imagePath)) {
                     Log::error('Image file not found in storage', [
                         'model_type' => $this->modelType,
                         'model_id' => $this->modelId,

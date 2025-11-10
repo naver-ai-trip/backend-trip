@@ -34,7 +34,7 @@ class TranslationController extends Controller
      *         @OA\JsonContent(
      *             required={"text", "target_language"},
      *             @OA\Property(property="text", type="string", example="안녕하세요", description="Text to translate (max 5000 chars)"),
-     *             @OA\Property(property="source_language", type="string", example="ko", description="Source language code (auto-detect if omitted)"),
+     *             @OA\Property(property="source_language", type="string", example="ko", description="Source language code (optional: auto-detect if omitted)", nullable=true),
      *             @OA\Property(property="target_language", type="string", example="en", description="Target language code")
      *         )
      *     ),
@@ -53,11 +53,11 @@ class TranslationController extends Controller
     {
         $validated = $request->validated();
 
-        // Call Papago service to translate text
+        // Call Papago service to translate text (null source_language = auto-detect)
         $result = $this->papagoService->translate(
             $validated['text'],
             $validated['target_language'],
-            $validated['source_language']
+            $validated['source_language'] ?? null
         );
 
         // Save translation record
@@ -65,7 +65,7 @@ class TranslationController extends Controller
             'user_id' => auth()->id(),
             'source_type' => 'text',
             'source_text' => $validated['text'],
-            'source_language' => $validated['source_language'],
+            'source_language' => $validated['source_language'] ?? null,
             'translated_text' => $result['translatedText'],
             'target_language' => $validated['target_language'],
         ]);
@@ -74,11 +74,11 @@ class TranslationController extends Controller
     }
 
     /**
-     * Extract text from image via OCR and translate
+     * Translate image using Papago Image Translation API (RECOMMENDED)
      *
      * @OA\Post(
-     *     path="/api/translations/ocr",
-     *     summary="Extract text from image and translate using NAVER Clova OCR + Papago",
+     *     path="/api/translations/image",
+     *     summary="Translate image text using NAVER Papago Image Translation (OCR + Translation in one call)",
      *     tags={"Translations"},
      *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
@@ -88,7 +88,66 @@ class TranslationController extends Controller
      *             @OA\Schema(
      *                 required={"image", "target_language"},
      *                 @OA\Property(property="image", type="string", format="binary", description="Image file (max 10MB)"),
-     *                 @OA\Property(property="source_language", type="string", example="ko"),
+     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
+     *                 @OA\Property(property="target_language", type="string", example="en")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Image translated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Translation")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
+     */
+    public function translateImage(TranslateOcrRequest $request)
+    {
+        $validated = $request->validated();
+
+        // Store uploaded image on public disk
+        $filePath = $request->file('image')->store('translations/' . auth()->id(), config('filesystems.public_disk'));
+
+        // Translate image text directly using Papago Image Translation API (null source_language = auto-detect)
+        $result = $this->papagoService->translateImage(
+            $request->file('image'),
+            $validated['target_language'],
+            $validated['source_language'] ?? null
+        );
+
+        // Save translation record with file path and detected text
+        $translation = Translation::create([
+            'user_id' => auth()->id(),
+            'source_type' => 'image',
+            'source_text' => $result['detectedText'],
+            'source_language' => $validated['source_language'] ?? null,
+            'translated_text' => $result['translatedText'],
+            'target_language' => $validated['target_language'],
+            'file_path' => $filePath,
+        ]);
+
+        return TranslationResource::make($translation)->response()->setStatusCode(201);
+    }
+
+    /**
+     * Extract text from image via OCR and translate (Legacy - use /image instead)
+     *
+     * @OA\Post(
+     *     path="/api/translations/ocr",
+     *     summary="Extract text from image and translate using NAVER Clova OCR + Papago (Legacy)",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 required={"image", "target_language"},
+     *                 @OA\Property(property="image", type="string", format="binary", description="Image file (max 10MB)"),
+     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
      *                 @OA\Property(property="target_language", type="string", example="en")
      *             )
      *         )
@@ -108,18 +167,18 @@ class TranslationController extends Controller
     {
         $validated = $request->validated();
 
-        // Store uploaded image
-        $filePath = $request->file('image')->store('translations/' . auth()->id(), 'public');
+        // Store uploaded image on public disk
+        $filePath = $request->file('image')->store('translations/' . auth()->id(), config('filesystems.public_disk'));
 
         // Extract text from image using Clova OCR
         $ocrResult = $this->ocrService->extractText($request->file('image'));
         $extractedText = $ocrResult['text'];
 
-        // Translate extracted text using Papago
+        // Translate extracted text using Papago (null source_language = auto-detect)
         $result = $this->papagoService->translate(
             $extractedText,
             $validated['target_language'],
-            $validated['source_language']
+            $validated['source_language'] ?? null
         );
 
         // Save translation record with file path
@@ -127,7 +186,7 @@ class TranslationController extends Controller
             'user_id' => auth()->id(),
             'source_type' => 'image',
             'source_text' => $extractedText,
-            'source_language' => $validated['source_language'],
+            'source_language' => $validated['source_language'] ?? null,
             'translated_text' => $result['translatedText'],
             'target_language' => $validated['target_language'],
             'file_path' => $filePath,
@@ -151,7 +210,7 @@ class TranslationController extends Controller
      *             @OA\Schema(
      *                 required={"audio", "target_language"},
      *                 @OA\Property(property="audio", type="string", format="binary", description="Audio file (mp3, wav, m4a, max 20MB)"),
-     *                 @OA\Property(property="source_language", type="string", example="ko"),
+     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
      *                 @OA\Property(property="target_language", type="string", example="en")
      *             )
      *         )
@@ -171,18 +230,18 @@ class TranslationController extends Controller
     {
         $validated = $request->validated();
 
-        // Store uploaded audio file
-        $filePath = $request->file('audio')->store('translations/' . auth()->id(), 'public');
+        // Store uploaded audio file on public disk
+        $filePath = $request->file('audio')->store('translations/' . auth()->id(), config('filesystems.public_disk'));
 
         // Transcribe audio to text using Clova Speech
         $sttResult = $this->speechService->speechToText($request->file('audio'));
         $transcribedText = $sttResult['text'];
 
-        // Translate transcribed text using Papago
+        // Translate transcribed text using Papago (null source_language = auto-detect)
         $result = $this->papagoService->translate(
             $transcribedText,
             $validated['target_language'],
-            $validated['source_language']
+            $validated['source_language'] ?? null
         );
 
         // Save translation record with file path
@@ -190,7 +249,7 @@ class TranslationController extends Controller
             'user_id' => auth()->id(),
             'source_type' => 'speech',
             'source_text' => $transcribedText,
-            'source_language' => $validated['source_language'],
+            'source_language' => $validated['source_language'] ?? null,
             'translated_text' => $result['translatedText'],
             'target_language' => $validated['target_language'],
             'file_path' => $filePath,
@@ -315,7 +374,7 @@ class TranslationController extends Controller
 
         // Delete file if exists
         if ($translation->file_path) {
-            Storage::disk('public')->delete($translation->file_path);
+            Storage::disk(config('filesystems.public_disk'))->delete($translation->file_path);
         }
 
         $translation->delete();

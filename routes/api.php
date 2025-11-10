@@ -1,14 +1,17 @@
 <?php
 
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\ChecklistItemController;
 use App\Http\Controllers\CheckpointImageController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\ItineraryItemController;
 use App\Http\Controllers\MapCheckpointController;
+use App\Http\Controllers\MapController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PlaceController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SearchTrendController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TranslationController;
@@ -27,6 +30,10 @@ use Illuminate\Support\Facades\Route;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
+
+// Social Authentication (Public routes)
+Route::get('/auth/google', [SocialAuthController::class, 'redirectToGoogle'])->name('auth.google');
+Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 
 Route::middleware('auth:sanctum')->group(function () {
     // Trip Management
@@ -81,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Translations (NAVER Papago, OCR, Speech)
     Route::post('/translations/text', [TranslationController::class, 'translateText'])->name('translations.text');
+    Route::post('/translations/image', [TranslationController::class, 'translateImage'])->name('translations.image');
     Route::post('/translations/ocr', [TranslationController::class, 'translateOcr'])->name('translations.ocr');
     Route::post('/translations/speech', [TranslationController::class, 'translateSpeech'])->name('translations.speech');
     Route::get('/translations', [TranslationController::class, 'index'])->name('translations.index');
@@ -92,4 +100,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/places/search-nearby', [PlaceController::class, 'searchNearby'])->name('places.search-nearby');
     Route::get('/places/naver/{naverPlaceId}', [PlaceController::class, 'getByNaverId'])->name('places.naver');
     Route::apiResource('places', PlaceController::class);
+
+    // NAVER Maps API (Geocoding & Directions)
+    Route::post('/maps/geocode', [MapController::class, 'geocode'])->name('maps.geocode');
+    Route::post('/maps/reverse-geocode', [MapController::class, 'reverseGeocode'])->name('maps.reverse-geocode');
+    Route::post('/maps/directions', [MapController::class, 'directions'])->name('maps.directions');
+    Route::post('/maps/directions-waypoints', [MapController::class, 'directionsWithWaypoints'])->name('maps.directions-waypoints');
+
+    // NAVER Search Trends (DataLab)
+    Route::post('/search-trends/keywords', [SearchTrendController::class, 'getKeywordTrends'])->name('search-trends.keywords');
+    Route::post('/search-trends/compare', [SearchTrendController::class, 'compareKeywords'])->name('search-trends.compare');
+    Route::post('/search-trends/demographics', [SearchTrendController::class, 'getAgeGenderTrends'])->name('search-trends.demographics');
+    Route::post('/search-trends/devices', [SearchTrendController::class, 'getDeviceTrends'])->name('search-trends.devices');
+    Route::post('/search-trends/destination-popularity', [SearchTrendController::class, 'analyzeDestinationPopularity'])->name('search-trends.destination-popularity');
+    Route::post('/search-trends/seasonal-insights', [SearchTrendController::class, 'getSeasonalInsights'])->name('search-trends.seasonal-insights');
 });

@@ -123,7 +123,7 @@ class CheckpointImageController extends Controller
         $path = "checkpoints/{$tripId}/{$checkpointId}/{$uuid}.{$extension}";
         
         // Store file on public disk
-        Storage::disk('public')->put($path, file_get_contents($file));
+        Storage::disk(config('filesystems.public_disk'))->put($path, file_get_contents($file));
 
         // Create database record (moderation will be done asynchronously)
         $image = CheckpointImage::create([
@@ -285,7 +285,7 @@ class CheckpointImageController extends Controller
         $this->authorize('delete', $image);
 
         // Delete file from storage
-        Storage::disk('public')->delete($image->file_path);
+        Storage::disk(config('filesystems.public_disk'))->delete($image->file_path);
 
         // Delete database record
         $image->delete();

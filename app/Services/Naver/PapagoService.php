@@ -170,4 +170,70 @@ class PapagoService extends NaverBaseService
     {
         return self::SUPPORTED_LANGUAGES;
     }
+
+    /**
+     * Translate text from image using Papago Image Translation API
+     *
+     * This method combines OCR and translation in a single API call,
+     * which is more efficient than calling OCR + translation separately.
+     *
+     * @param mixed $image UploadedFile or file path
+     * @param string $targetLang Target language code (e.g., 'en', 'ko', 'ja')
+     * @param string|null $sourceLang Source language code (auto-detect if null)
+     * @return array{translatedText: string, detectedText: string, sourceLang: string, targetLang: string}|null
+     */
+    public function translateImage($image, string $targetLang, ?string $sourceLang = null): ?array
+    {
+        if (!$this->isEnabled()) {
+            return null;
+        }
+
+        if (!$this->isLanguageSupported($targetLang)) {
+            throw new \InvalidArgumentException("Target language '{$targetLang}' is not supported");
+        }
+
+        // Auto-detect source language if not provided
+        if ($sourceLang === null) {
+            $sourceLang = 'auto';
+        } elseif (!$this->isLanguageSupported($sourceLang)) {
+            throw new \InvalidArgumentException("Source language '{$sourceLang}' is not supported");
+        }
+
+        // Prepare image file for upload
+        if ($image instanceof \Illuminate\Http\UploadedFile) {
+            $imagePath = $image->getRealPath();
+            $imageContents = file_get_contents($imagePath);
+        } else {
+            $imageContents = file_get_contents($image);
+        }
+
+        $this->logApiCall('POST', 'translate-image', [
+            'image_size' => strlen($imageContents),
+            'source' => $sourceLang,
+            'target' => $targetLang,
+        ]);
+
+        // Use multipart/form-data for image upload
+        $response = $this->client()
+            ->asMultipart()
+            ->attach('image', $imageContents, 'image.jpg')
+            ->post('/papago-image/v1/translate', [
+                'source' => $sourceLang,
+                'target' => $targetLang,
+            ]);
+
+        $data = $this->handleResponse($response, 'translate-image');
+
+        // Extract OCR text and translation from response
+        $detectedText = $data['message']['result']['srcText'] ?? '';
+        $translatedText = $data['message']['result']['tarText'] ?? '';
+        $detectedSourceLang = $data['message']['result']['srcLangType'] ?? $sourceLang;
+
+        return [
+            'translatedText' => $translatedText,
+            'detectedText' => $detectedText,
+            'sourceLang' => $detectedSourceLang,
+            'targetLang' => $targetLang,
+        ];
+    }
 }

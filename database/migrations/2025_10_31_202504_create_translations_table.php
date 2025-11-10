@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('source_type'); // text, image, speech
             $table->text('source_text')->nullable(); // Original text if type is 'text'
-            $table->string('source_language');
+            $table->string('source_language')->nullable(); // Auto-detect if null
             $table->text('translated_text');
             $table->string('target_language');
             $table->string('file_path')->nullable(); // For image/audio files
