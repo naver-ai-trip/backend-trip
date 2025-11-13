@@ -23,8 +23,6 @@ class ItineraryItem extends Model
 
     protected $casts = [
         'day_number' => 'integer',
-        'start_time' => 'datetime:H:i:s',
-        'end_time' => 'datetime:H:i:s',
     ];
 
     /**
