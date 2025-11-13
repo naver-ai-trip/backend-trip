@@ -98,7 +98,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Place Search & Management
     Route::post('/places/search', [PlaceController::class, 'search'])->name('places.search');
     Route::post('/places/search-nearby', [PlaceController::class, 'searchNearby'])->name('places.search-nearby');
-    Route::get('/places/naver/{naverPlaceId}', [PlaceController::class, 'getByNaverId'])->name('places.naver');
     Route::apiResource('places', PlaceController::class);
 
     // NAVER Maps API (Geocoding & Directions)

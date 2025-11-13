@@ -81,7 +81,6 @@ class PlaceSearchTest extends TestCase
                         'road_address',
                         'latitude',
                         'longitude',
-                        'naver_place_id',
                         'naver_link'
                     ]
                 ],
@@ -198,6 +197,48 @@ class PlaceSearchTest extends TestCase
             'name' => '남산타워',
             'category' => '관광명소'
         ]);
+    }
+
+    /** @test */
+    public function saved_place_can_be_retrieved_from_database()
+    {
+        $place = Place::factory()->create([
+            'name' => 'Kyoto Temple',
+            'lat' => 35.0116,
+            'lng' => 135.7681,
+        ]);
+
+        $response = $this->actingAs($this->user, 'sanctum')->getJson("/api/places/{$place->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('name', 'Kyoto Temple')
+            ->assertJsonPath('lat', 35.0116);
+    }
+
+    /** @test */
+    public function duplicate_coordinates_returns_existing_place()
+    {
+        // First save
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/places', [
+            'name' => 'Osaka Castle',
+            'latitude' => 34.6873,
+            'longitude' => 135.5262,
+            'category' => 'Tourism'
+        ]);
+
+        // Try to save again with same coordinates
+        $response = $this->actingAs($this->user, 'sanctum')->postJson('/api/places', [
+            'name' => 'Osaka Castle Duplicate',
+            'latitude' => 34.6873,
+            'longitude' => 135.5262,
+            'category' => 'Tourism'
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Place already exists');
+
+        // Should only have one place with these coordinates
+        $this->assertCount(1, Place::where('lat', 34.6873)->where('lng', 135.5262)->get());
     }
 
     /** @test */
