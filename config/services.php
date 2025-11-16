@@ -139,4 +139,26 @@ return [
         'retry_sleep' => env('NAVER_API_RETRY_SLEEP', 1000),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Amadeus API Services
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for Amadeus Travel APIs
+    | Documentation: https://developers.amadeus.com/
+    | Registration: https://developers.amadeus.com/my-apps
+    |
+    */
+
+    'amadeus' => [
+        'api_key' => env('AMADEUS_API_KEY'),
+        'api_secret' => env('AMADEUS_API_SECRET'),
+        'base_url' => env('AMADEUS_BASE_URL', 'https://test.api.amadeus.com/v1'),
+        'token_url' => env('AMADEUS_TOKEN_URL', 'https://test.api.amadeus.com/v1/security/oauth2/token'),
+        'timeout' => env('AMADEUS_TIMEOUT', 30),
+        'retry_times' => env('AMADEUS_RETRY_TIMES', 3),
+        'retry_sleep' => env('AMADEUS_RETRY_SLEEP', 1000),
+        'enabled' => env('AMADEUS_ENABLED', true),
+    ],
+
 ];

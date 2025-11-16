@@ -15,6 +15,7 @@ use App\Http\Controllers\MapController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PlaceController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\HotelController;
 use App\Http\Controllers\SearchTrendController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\TagController;
@@ -148,4 +149,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Agent Webhooks - Real-time event notifications
     Route::post('/agent-webhooks/{agentWebhook}/test', [AgentWebhookController::class, 'test'])->name('agent-webhooks.test');
     Route::apiResource('agent-webhooks', AgentWebhookController::class);
+    // Amadeus Hotel APIs
+    Route::post('/hotels/search', [HotelController::class, 'search'])->name('hotels.search');
+    Route::post('/hotels/offers', [HotelController::class, 'searchOffers'])->name('hotels.offers');
+    Route::get('/hotels/offers/{offerId}', [HotelController::class, 'getOffer'])->name('hotels.offers.show');
+    Route::post('/hotels/ratings', [HotelController::class, 'getRatings'])->name('hotels.ratings');
+    Route::post('/hotels/bookings', [HotelController::class, 'createBooking'])->name('hotels.bookings.store');
+    Route::post('/hotels/search-with-offers', [HotelController::class, 'searchWithOffers'])->name('hotels.search-with-offers');
 });
