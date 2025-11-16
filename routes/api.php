@@ -15,7 +15,6 @@ use App\Http\Controllers\MapController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PlaceController;
 use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\HotelController;
 use App\Http\Controllers\SearchTrendController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\TagController;
@@ -141,7 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Trip Recommendations - AI suggestions (nested under trips)
     Route::post('/recommendations/{recommendation}/accept', [TripRecommendationController::class, 'accept'])->name('recommendations.accept');
     Route::post('/recommendations/{recommendation}/reject', [TripRecommendationController::class, 'reject'])->name('recommendations.reject');
-    Route::apiResource('trips.recommendations', TripRecommendationController::class)->only(['index', 'show']);
+    Route::apiResource('trips.recommendations', TripRecommendationController::class)->only(['index', 'store', 'show']);
 
     // User Preferences - Travel preferences for personalization
     Route::apiResource('user-preferences', UserPreferenceController::class);

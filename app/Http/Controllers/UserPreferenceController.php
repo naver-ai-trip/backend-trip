@@ -51,9 +51,50 @@ class UserPreferenceController extends Controller
      * @OA\Post(
      *     path="/api/user-preferences",
      *     summary="Create a new user preference",
+     *     description="Store user travel preferences for AI personalization",
      *     tags={"AI Agent - User Preferences"},
      *     security={{"sanctum":{}}},
-     *     @OA\Response(response=201, description="Preference created"),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"preference_type", "value"},
+     *             @OA\Property(
+     *                 property="preference_type",
+     *                 type="string",
+     *                 enum={"travel_style", "budget_range", "dietary_restrictions", "accessibility_needs"},
+     *                 description="Type of preference",
+     *                 example="travel_style"
+     *             ),
+     *             @OA\Property(
+     *                 property="value",
+     *                 type="object",
+     *                 description="Preference data",
+     *                 example={"styles": {"cultural", "foodie"}, "pace": "moderate"}
+     *             ),
+     *             @OA\Property(
+     *                 property="priority",
+     *                 type="integer",
+     *                 minimum=1,
+     *                 maximum=10,
+     *                 description="Priority level (1-10, higher = more important)",
+     *                 example=8
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Preference created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="preference_type", type="string"),
+     *                 @OA\Property(property="value", type="object"),
+     *                 @OA\Property(property="priority", type="integer")
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
      *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
      * )

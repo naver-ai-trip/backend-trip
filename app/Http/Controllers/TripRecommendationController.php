@@ -114,20 +114,149 @@ class TripRecommendationController extends Controller
     }
 
     /**
+     * Store a newly created recommendation.
+     *
+     * @OA\Post(
+     *     path="/api/trips/{tripId}/recommendations",
+     *     summary="Create a new AI recommendation",
+     *     description="AI agent creates a recommendation for the trip",
+     *     tags={"AI Agent - Recommendations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="tripId",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer"),
+     *         description="Trip ID"
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"recommendation_type", "data", "confidence_score"},
+     *             @OA\Property(
+     *                 property="recommendation_type",
+     *                 type="string",
+     *                 enum={"place", "itinerary", "activity", "dining", "accommodation", "route"},
+     *                 description="Type of recommendation",
+     *                 example="place"
+     *             ),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 description="Recommendation details (structure varies by type)",
+     *                 example={
+     *                     "place_name": "Gyeongbokgung Palace",
+     *                     "category": "Historical Site",
+     *                     "description": "Largest of the Five Grand Palaces",
+     *                     "coordinates": {"lat": 37.5788, "lng": 126.9770}
+     *                 }
+     *             ),
+     *             @OA\Property(
+     *                 property="confidence_score",
+     *                 type="number",
+     *                 format="float",
+     *                 minimum=0,
+     *                 maximum=1,
+     *                 description="AI confidence in this recommendation (0-1)",
+     *                 example=0.92
+     *             ),
+     *             @OA\Property(
+     *                 property="reasoning",
+     *                 type="string",
+     *                 nullable=true,
+     *                 description="Explanation for why this was recommended",
+     *                 example="Based on your interest in history and proximity to other sites"
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Recommendation created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=1234),
+     *                 @OA\Property(property="trip_id", type="integer"),
+     *                 @OA\Property(property="recommendation_type", type="string"),
+     *                 @OA\Property(property="status", type="string", example="pending"),
+     *                 @OA\Property(property="data", type="object"),
+     *                 @OA\Property(property="confidence_score", type="number"),
+     *                 @OA\Property(property="created_at", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
+     */
+    public function store(Request $request, Trip $trip): JsonResponse
+    {
+        $this->authorize('view', $trip);
+
+        $validated = $request->validate([
+            'recommendation_type' => ['required', 'string', 'in:place,itinerary,activity,dining,accommodation,route'],
+            'data' => ['required', 'array'],
+            'confidence_score' => ['required', 'numeric', 'between:0,1'],
+            'reasoning' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $recommendation = TripRecommendation::create([
+            'trip_id' => $trip->id,
+            'recommendation_type' => $validated['recommendation_type'],
+            'data' => $validated['data'],
+            'confidence_score' => $validated['confidence_score'],
+            'reasoning' => $validated['reasoning'] ?? null,
+            'status' => 'pending',
+        ]);
+
+        return (new TripRecommendationResource($recommendation))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /**
      * Accept a recommendation.
      *
      * @OA\Post(
      *     path="/api/recommendations/{id}/accept",
      *     summary="Accept a recommendation",
+     *     description="Accept AI recommendation and optionally add to itinerary",
      *     tags={"AI Agent - Recommendations"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
-     *         @OA\Schema(type="integer")
+     *         @OA\Schema(type="integer"),
+     *         description="Recommendation ID"
      *     ),
-     *     @OA\Response(response=200, description="Recommendation accepted"),
+     *     @OA\RequestBody(
+     *         required=false,
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="note",
+     *                 type="string",
+     *                 nullable=true,
+     *                 description="Optional note about why accepted",
+     *                 example="Great suggestion! Adding to Day 2."
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Recommendation accepted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer"),
+     *                 @OA\Property(property="status", type="string", example="accepted"),
+     *                 @OA\Property(property="accepted_at", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
      *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
      *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
@@ -143,7 +272,7 @@ class TripRecommendationController extends Controller
             ], 422);
         }
 
-        $recommendation->accept($request->user());
+        $recommendation->accept();
 
         return response()->json([
             'data' => new TripRecommendationResource($recommendation),
@@ -156,15 +285,41 @@ class TripRecommendationController extends Controller
      * @OA\Post(
      *     path="/api/recommendations/{id}/reject",
      *     summary="Reject a recommendation",
+     *     description="Reject AI recommendation with optional feedback",
      *     tags={"AI Agent - Recommendations"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
-     *         @OA\Schema(type="integer")
+     *         @OA\Schema(type="integer"),
+     *         description="Recommendation ID"
      *     ),
-     *     @OA\Response(response=200, description="Recommendation rejected"),
+     *     @OA\RequestBody(
+     *         required=false,
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="feedback",
+     *                 type="string",
+     *                 nullable=true,
+     *                 description="Reason for rejection (helps AI learn)",
+     *                 example="Too expensive for my budget"
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Recommendation rejected successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer"),
+     *                 @OA\Property(property="status", type="string", example="rejected"),
+     *                 @OA\Property(property="rejected_at", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
      *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
      *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
@@ -180,7 +335,7 @@ class TripRecommendationController extends Controller
             ], 422);
         }
 
-        $recommendation->reject($request->user());
+        $recommendation->reject();
 
         return response()->json([
             'data' => new TripRecommendationResource($recommendation),

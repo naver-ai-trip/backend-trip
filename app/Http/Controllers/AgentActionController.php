@@ -72,15 +72,64 @@ class AgentActionController extends Controller
      * @OA\Post(
      *     path="/api/chat-sessions/{sessionId}/actions",
      *     summary="Create a new agent action",
+     *     description="Track AI agent operations like searches, translations, API calls",
      *     tags={"AI Agent - Actions"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="sessionId",
      *         in="path",
      *         required=true,
-     *         @OA\Schema(type="integer")
+     *         @OA\Schema(type="integer"),
+     *         description="Chat session ID"
      *     ),
-     *     @OA\Response(response=201, description="Action created"),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"action_type", "input_data"},
+     *             @OA\Property(
+     *                 property="action_type",
+     *                 type="string",
+     *                 enum={"search_places", "translate_content", "add_to_itinerary", "get_recommendations", "create_trip"},
+     *                 description="Type of action being performed",
+     *                 example="search_places"
+     *             ),
+     *             @OA\Property(
+     *                 property="input_data",
+     *                 type="object",
+     *                 description="Input parameters for the action",
+     *                 example={"query": "Korean restaurant Seoul", "category": "food"}
+     *             ),
+     *             @OA\Property(
+     *                 property="entity_type",
+     *                 type="string",
+     *                 nullable=true,
+     *                 description="Related entity type",
+     *                 example="trip"
+     *             ),
+     *             @OA\Property(
+     *                 property="entity_id",
+     *                 type="integer",
+     *                 nullable=true,
+     *                 description="Related entity ID",
+     *                 example=123
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Action created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=999),
+     *                 @OA\Property(property="action_type", type="string", example="search_places"),
+     *                 @OA\Property(property="status", type="string", example="pending"),
+     *                 @OA\Property(property="input_data", type="object"),
+     *                 @OA\Property(property="started_at", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
      *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
      *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
@@ -147,15 +196,42 @@ class AgentActionController extends Controller
      * @OA\Post(
      *     path="/api/actions/{id}/complete",
      *     summary="Mark action as completed",
+     *     description="Update action status to completed with output data",
      *     tags={"AI Agent - Actions"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
-     *         @OA\Schema(type="integer")
+     *         @OA\Schema(type="integer"),
+     *         description="Action ID"
      *     ),
-     *     @OA\Response(response=200, description="Action completed"),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"output_data"},
+     *             @OA\Property(
+     *                 property="output_data",
+     *                 type="object",
+     *                 description="Results from the completed action",
+     *                 example={"results_found": 10, "processing_time_ms": 234}
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Action marked as completed",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer"),
+     *                 @OA\Property(property="status", type="string", example="completed"),
+     *                 @OA\Property(property="output_data", type="object"),
+     *                 @OA\Property(property="completed_at", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
      *     @OA\Response(response=403, ref="#/components/responses/Forbidden")
      * )
@@ -177,15 +253,42 @@ class AgentActionController extends Controller
      * @OA\Post(
      *     path="/api/actions/{id}/fail",
      *     summary="Mark action as failed",
+     *     description="Update action status to failed with error message",
      *     tags={"AI Agent - Actions"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
-     *         @OA\Schema(type="integer")
+     *         @OA\Schema(type="integer"),
+     *         description="Action ID"
      *     ),
-     *     @OA\Response(response=200, description="Action marked as failed"),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"error_message"},
+     *             @OA\Property(
+     *                 property="error_message",
+     *                 type="string",
+     *                 description="Reason for failure",
+     *                 example="NAVER Maps API rate limit exceeded"
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Action marked as failed",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer"),
+     *                 @OA\Property(property="status", type="string", example="failed"),
+     *                 @OA\Property(property="error_message", type="string"),
+     *                 @OA\Property(property="completed_at", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
      *     @OA\Response(response=403, ref="#/components/responses/Forbidden")
      * )

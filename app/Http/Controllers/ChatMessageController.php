@@ -68,15 +68,72 @@ class ChatMessageController extends Controller
      * @OA\Post(
      *     path="/api/chat-sessions/{sessionId}/messages",
      *     summary="Send a message in chat session",
+     *     description="Send a message from user or AI agent in the conversation",
      *     tags={"AI Agent - Chat Messages"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="sessionId",
      *         in="path",
      *         required=true,
-     *         @OA\Schema(type="integer")
+     *         @OA\Schema(type="integer"),
+     *         description="Chat session ID"
      *     ),
-     *     @OA\Response(response=201, description="Message created"),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"message", "from_role"},
+     *             @OA\Property(
+     *                 property="message",
+     *                 type="string",
+     *                 description="Message content",
+     *                 example="I want to visit historical palaces in Seoul"
+     *             ),
+     *             @OA\Property(
+     *                 property="from_role",
+     *                 type="string",
+     *                 enum={"user", "ai"},
+     *                 description="Who sent this message",
+     *                 example="user"
+     *             ),
+     *             @OA\Property(
+     *                 property="metadata",
+     *                 type="object",
+     *                 nullable=true,
+     *                 description="Additional metadata (AI model info, tokens, etc.)",
+     *                 example={"model": "gpt-4", "confidence": 0.95}
+     *             ),
+     *             @OA\Property(
+     *                 property="entity_type",
+     *                 type="string",
+     *                 nullable=true,
+     *                 description="Related entity type (trip, place, etc.)",
+     *                 example="place"
+     *             ),
+     *             @OA\Property(
+     *                 property="entity_id",
+     *                 type="integer",
+     *                 nullable=true,
+     *                 description="Related entity ID",
+     *                 example=123
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Message created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=456),
+     *                 @OA\Property(property="chat_session_id", type="integer", example=123),
+     *                 @OA\Property(property="from_role", type="string", example="user"),
+     *                 @OA\Property(property="message", type="string"),
+     *                 @OA\Property(property="metadata", type="object", nullable=true),
+     *                 @OA\Property(property="created_at", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
      *     @OA\Response(response=403, ref="#/components/responses/Forbidden"),
      *     @OA\Response(response=422, ref="#/components/responses/ValidationError")

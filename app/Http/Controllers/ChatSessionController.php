@@ -79,11 +79,81 @@ class ChatSessionController extends Controller
      * @OA\Post(
      *     path="/api/chat-sessions",
      *     summary="Create a new chat session",
+     *     description="Start a new conversation session with the AI agent for trip planning, itinerary building, or place search",
      *     tags={"AI Agent - Chat Sessions"},
      *     security={{"sanctum":{}}},
-     *     @OA\Response(response=201, description="Chat session created"),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"session_type"},
+     *             @OA\Property(
+     *                 property="session_type",
+     *                 type="string",
+     *                 enum={"trip_planning", "itinerary_building", "place_search", "recommendation"},
+     *                 description="Type of conversation session",
+     *                 example="trip_planning"
+     *             ),
+     *             @OA\Property(
+     *                 property="trip_id",
+     *                 type="integer",
+     *                 nullable=true,
+     *                 description="Optional trip ID to associate with this session",
+     *                 example=123
+     *             ),
+     *             @OA\Property(
+     *                 property="context",
+     *                 type="object",
+     *                 nullable=true,
+     *                 description="Additional context for the conversation",
+     *                 example={
+     *                     "destination": "Seoul, South Korea",
+     *                     "budget": "moderate",
+     *                     "interests": {"food", "culture", "history"},
+     *                     "travel_dates": {
+     *                         "start": "2025-12-01",
+     *                         "end": "2025-12-07"
+     *                     }
+     *                 }
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Chat session created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=123),
+     *                 @OA\Property(property="user_id", type="integer", example=1),
+     *                 @OA\Property(property="trip_id", type="integer", nullable=true, example=null),
+     *                 @OA\Property(property="session_type", type="string", example="trip_planning"),
+     *                 @OA\Property(property="context", type="object", nullable=true),
+     *                 @OA\Property(property="is_active", type="boolean", example=true),
+     *                 @OA\Property(property="started_at", type="string", format="date-time"),
+     *                 @OA\Property(property="ended_at", type="string", format="date-time", nullable=true),
+     *                 @OA\Property(property="created_at", type="string", format="date-time"),
+     *                 @OA\Property(property="updated_at", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
-     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="The given data was invalid."),
+     *             @OA\Property(
+     *                 property="errors",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="session_type",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The session type field is required.")
+     *                 )
+     *             )
+     *         )
+     *     )
      * )
      */
     public function store(StoreChatSessionRequest $request): JsonResponse
