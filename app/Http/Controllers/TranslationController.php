@@ -121,12 +121,12 @@ class TranslationController extends Controller
         $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
         Storage::put($filename, file_get_contents($file->getRealPath()));
         
-        // Get public URL of saved image to send to Papago API
-        $imageUrlForApi = Storage::url($filename);
+        // Get filesystem path of saved image to send to Papago API
+        $imagePathForApi = Storage::path($filename);
 
         // Translate image text directly using Papago Image Translation API
         $result = $this->papagoService->translateImage(
-            $imageUrlForApi,
+            $imagePathForApi,
             $validated['target_language'],
             $validated['source_language'] ?? null
         );
@@ -256,11 +256,11 @@ class TranslationController extends Controller
         $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
         Storage::put($filename, file_get_contents($file->getRealPath()));
         
-        // Get public URL of saved image to send to OCR API
-        $imageUrlForApi = Storage::url($filename);
+        // Get filesystem path of saved image to send to OCR API
+        $imagePathForApi = Storage::path($filename);
 
         // Extract text from image using Clova OCR
-        $ocrResult = $this->ocrService->extractText($imageUrlForApi);
+        $ocrResult = $this->ocrService->extractText($imagePathForApi);
         $extractedText = $ocrResult['text'];
 
         // Translate extracted text using Papago
