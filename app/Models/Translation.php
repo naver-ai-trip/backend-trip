@@ -18,6 +18,11 @@ class Translation extends Model
         'translated_text',
         'target_language',
         'file_path',
+        'blocks',
+    ];
+
+    protected $casts = [
+        'blocks' => 'array',
     ];
 
     /**

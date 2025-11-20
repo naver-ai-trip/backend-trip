@@ -232,15 +232,18 @@ class PapagoService extends NaverBaseService
         $data = $this->handleResponse($response, 'translate-image');
 
         // Extract OCR text and translation from response
-        $detectedText = $data['message']['result']['srcText'] ?? '';
-        $translatedText = $data['message']['result']['tarText'] ?? '';
-        $detectedSourceLang = $data['message']['result']['srcLangType'] ?? $sourceLang;
+        // The actual API response structure is: { data: { sourceText, targetText, sourceLang, targetLang, blocks: [...] } }
+        $detectedText = $data['data']['sourceText'] ?? '';
+        $translatedText = $data['data']['targetText'] ?? '';
+        $detectedSourceLang = $data['data']['sourceLang'] ?? $sourceLang;
+        $blocks = $data['data']['blocks'] ?? [];
 
         return [
             'translatedText' => $translatedText,
             'detectedText' => $detectedText,
             'sourceLang' => $detectedSourceLang,
             'targetLang' => $targetLang,
+            'blocks' => $blocks,
         ];
     }
 }
