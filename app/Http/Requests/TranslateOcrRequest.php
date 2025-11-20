@@ -32,24 +32,15 @@ class TranslateOcrRequest extends FormRequest
                         if (!$file->isValid()) {
                             $fail('The image file is invalid.');
                         }
-                        if (!in_array($file->extension(), ['jpeg', 'jpg', 'png', 'gif', 'webp'])) {
-                            $fail('The image must be a file of type: jpeg, jpg, png, gif, webp.');
-                        }
-                        if ($file->getSize() > 10240 * 1024) { // 10MB
-                            $fail('The image must not be greater than 10MB.');
-                        }
                         return;
                     }
                     // Otherwise, it must be a URL
                     if (!is_string($value) || !filter_var($value, FILTER_VALIDATE_URL)) {
                         $fail('The image must be either a valid file upload or a valid URL.');
                     }
-                    if (!preg_match('/\.(jpeg|jpg|png|gif|webp)(\?.*)?$/i', $value)) {
-                        $fail('The image URL must point to a valid image file (jpeg, jpg, png, gif, webp).');
-                    }
                 },
             ],
-            'source_language' => ['nullable', 'string'], // Optional: auto-detect if not provided
+            'source_language' => ['nullable', 'string'],
             'target_language' => ['required', 'string'],
         ];
     }

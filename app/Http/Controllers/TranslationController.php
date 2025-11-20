@@ -74,12 +74,12 @@ class TranslationController extends Controller
     }
 
     /**
-     * Translate image using Papago Image Translation API (RECOMMENDED)
+     * Translate image using Papago Image Translation API - File Upload
      *
      * @OA\Post(
      *     path="/api/translations/image",
-     *     summary="Translate image text using NAVER Papago Image Translation (OCR + Translation in one call)",
-     *     description="Accepts either a file upload or an external image URL. If URL provided, sends directly to NAVER API. If file uploaded, saves to storage and uses the stored image URL. Images are permanently stored for user's translation history.",
+     *     summary="Translate uploaded image using NAVER Papago (File Upload)",
+     *     description="Upload an image file, save to storage, and translate using NAVER Papago Image Translation API.",
      *     tags={"Translations"},
      *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
@@ -88,11 +88,8 @@ class TranslationController extends Controller
      *             mediaType="multipart/form-data",
      *             @OA\Schema(
      *                 required={"image", "target_language"},
-     *                 @OA\Property(property="image", description="Either file upload (binary) or image URL (string)", oneOf={
-     *                     @OA\Schema(type="string", format="binary", description="Image file upload (jpeg, jpg, png, gif, webp, max 10MB)"),
-     *                     @OA\Schema(type="string", format="uri", example="https://example.com/images/menu.jpg", description="External image URL")
-     *                 }),
-     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
+     *                 @OA\Property(property="image", type="string", format="binary", description="Image file to upload"),
+     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect)", nullable=true),
      *                 @OA\Property(property="target_language", type="string", example="en", description="Target language code")
      *             )
      *         )
@@ -105,35 +102,27 @@ class TranslationController extends Controller
      *         )
      *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
-     *     @OA\Response(
-     *         response=422,
-     *         description="Validation error or failed to process image",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Failed to download image from URL")
-     *         )
-     *     )
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
      * )
      */
     public function translateImage(TranslateOcrRequest $request)
     {
         $validated = $request->validated();
-        $filename = null;
-        $imageUrlForApi = null;
 
-        // Check if it's a file upload
-        if ($request->hasFile('image')) {
-            // Handle file upload: save to storage and use Storage::url()
-            $file = $request->file('image');
-            $extension = $file->extension();
-            $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
-            Storage::put($filename, file_get_contents($file->getRealPath()));
-            
-            // Get public URL of saved image to send to Papago API
-            $imageUrlForApi = Storage::url($filename);
-        } else {
-            // Handle URL: send directly to NAVER API
-            $imageUrlForApi = $validated['image'];
+        if (!$request->hasFile('image')) {
+            return response()->json([
+                'message' => 'Image file is required. Use /api/translations/image-url for URL-based translation.',
+            ], 422);
         }
+
+        // Handle file upload: save to storage and use Storage::url()
+        $file = $request->file('image');
+        $extension = $file->extension();
+        $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
+        Storage::put($filename, file_get_contents($file->getRealPath()));
+        
+        // Get public URL of saved image to send to Papago API
+        $imageUrlForApi = Storage::url($filename);
 
         // Translate image text directly using Papago Image Translation API
         $result = $this->papagoService->translateImage(
@@ -142,7 +131,7 @@ class TranslationController extends Controller
             $validated['source_language'] ?? null
         );
 
-        // Save translation record with file path (if uploaded) and detected text
+        // Save translation record with file path and detected text
         $translation = Translation::create([
             'user_id' => auth()->id(),
             'source_type' => 'image',
@@ -150,19 +139,82 @@ class TranslationController extends Controller
             'source_language' => $validated['source_language'] ?? null,
             'translated_text' => $result['translatedText'],
             'target_language' => $validated['target_language'],
-            'file_path' => $filename, // null if URL was provided
+            'file_path' => $filename,
         ]);
 
         return TranslationResource::make($translation)->response()->setStatusCode(201);
     }
 
     /**
-     * Extract text from image via OCR and translate (Legacy - use /image instead)
+     * Translate image using Papago Image Translation API - Image URL
+     *
+     * @OA\Post(
+     *     path="/api/translations/image-url",
+     *     summary="Translate image from URL using NAVER Papago (Image URL)",
+     *     description="Provide an image URL to translate directly using NAVER Papago Image Translation API.",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"image", "target_language"},
+     *             @OA\Property(property="image", type="string", format="uri", example="https://example.com/images/menu.jpg", description="Image URL to translate"),
+     *             @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect)", nullable=true),
+     *             @OA\Property(property="target_language", type="string", example="en", description="Target language code")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Image translated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Translation")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
+     */
+    public function translateImageUrl(TranslateOcrRequest $request)
+    {
+        $validated = $request->validated();
+
+        if ($request->hasFile('image')) {
+            return response()->json([
+                'message' => 'Please use /api/translations/image for file uploads.',
+            ], 422);
+        }
+
+        // Handle URL: send directly to NAVER API
+        $imageUrlForApi = $validated['image'];
+
+        // Translate image text directly using Papago Image Translation API
+        $result = $this->papagoService->translateImage(
+            $imageUrlForApi,
+            $validated['target_language'],
+            $validated['source_language'] ?? null
+        );
+
+        // Save translation record without file path
+        $translation = Translation::create([
+            'user_id' => auth()->id(),
+            'source_type' => 'image',
+            'source_text' => $result['detectedText'],
+            'source_language' => $validated['source_language'] ?? null,
+            'translated_text' => $result['translatedText'],
+            'target_language' => $validated['target_language'],
+            'file_path' => null,
+        ]);
+
+        return TranslationResource::make($translation)->response()->setStatusCode(201);
+    }
+
+    /**
+     * Extract text from image via OCR and translate - File Upload
      *
      * @OA\Post(
      *     path="/api/translations/ocr",
-     *     summary="Extract text from image and translate using NAVER Clova OCR + Papago (Legacy)",
-     *     description="Accepts either a file upload or an external image URL. If URL provided, sends directly to NAVER API. If file uploaded, saves to storage and uses the stored image URL for OCR processing. Note: /api/translations/image is recommended for better accuracy.",
+     *     summary="OCR and translate uploaded image using NAVER Clova OCR + Papago (File Upload)",
+     *     description="Upload an image file, save to storage, extract text via OCR, and translate.",
      *     tags={"Translations"},
      *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
@@ -171,52 +223,41 @@ class TranslationController extends Controller
      *             mediaType="multipart/form-data",
      *             @OA\Schema(
      *                 required={"image", "target_language"},
-     *                 @OA\Property(property="image", description="Either file upload (binary) or image URL (string)", oneOf={
-     *                     @OA\Schema(type="string", format="binary", description="Image file upload (jpeg, jpg, png, gif, webp, max 10MB)"),
-     *                     @OA\Schema(type="string", format="uri", example="https://example.com/images/sign.jpg", description="External image URL")
-     *                 }),
-     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
+     *                 @OA\Property(property="image", type="string", format="binary", description="Image file to upload"),
+     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect)", nullable=true),
      *                 @OA\Property(property="target_language", type="string", example="en", description="Target language code")
      *             )
      *         )
      *     ),
      *     @OA\Response(
      *         response=201,
-     *         description="OCR extracted and translation completed",
+     *         description="OCR and translation completed",
      *         @OA\JsonContent(
      *             @OA\Property(property="data", ref="#/components/schemas/Translation")
      *         )
      *     ),
      *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
-     *     @OA\Response(
-     *         response=422,
-     *         description="Validation error or failed to process image",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Failed to download image from URL")
-     *         )
-     *     )
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
      * )
      */
     public function translateOcr(TranslateOcrRequest $request)
     {
         $validated = $request->validated();
-        $filename = null;
-        $imageUrlForApi = null;
 
-        // Check if it's a file upload
-        if ($request->hasFile('image')) {
-            // Handle file upload: save to storage and use Storage::url()
-            $file = $request->file('image');
-            $extension = $file->extension();
-            $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
-            Storage::put($filename, file_get_contents($file->getRealPath()));
-            
-            // Get public URL of saved image to send to OCR API
-            $imageUrlForApi = Storage::url($filename);
-        } else {
-            // Handle URL: send directly to NAVER API
-            $imageUrlForApi = $validated['image'];
+        if (!$request->hasFile('image')) {
+            return response()->json([
+                'message' => 'Image file is required. Use /api/translations/ocr-url for URL-based OCR.',
+            ], 422);
         }
+
+        // Handle file upload: save to storage and use Storage::url()
+        $file = $request->file('image');
+        $extension = $file->extension();
+        $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
+        Storage::put($filename, file_get_contents($file->getRealPath()));
+        
+        // Get public URL of saved image to send to OCR API
+        $imageUrlForApi = Storage::url($filename);
 
         // Extract text from image using Clova OCR
         $ocrResult = $this->ocrService->extractText($imageUrlForApi);
@@ -229,7 +270,7 @@ class TranslationController extends Controller
             $validated['source_language'] ?? null
         );
 
-        // Save translation record with file path (if uploaded)
+        // Save translation record with file path
         $translation = Translation::create([
             'user_id' => auth()->id(),
             'source_type' => 'image',
@@ -237,7 +278,74 @@ class TranslationController extends Controller
             'source_language' => $validated['source_language'] ?? null,
             'translated_text' => $result['translatedText'],
             'target_language' => $validated['target_language'],
-            'file_path' => $filename, // null if URL was provided
+            'file_path' => $filename,
+        ]);
+
+        return TranslationResource::make($translation)->response()->setStatusCode(201);
+    }
+
+    /**
+     * Extract text from image via OCR and translate - Image URL
+     *
+     * @OA\Post(
+     *     path="/api/translations/ocr-url",
+     *     summary="OCR and translate image from URL using NAVER Clova OCR + Papago (Image URL)",
+     *     description="Provide an image URL to extract text via OCR and translate.",
+     *     tags={"Translations"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"image", "target_language"},
+     *             @OA\Property(property="image", type="string", format="uri", example="https://example.com/images/sign.jpg", description="Image URL to process"),
+     *             @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect)", nullable=true),
+     *             @OA\Property(property="target_language", type="string", example="en", description="Target language code")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="OCR and translation completed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", ref="#/components/schemas/Translation")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
+     *     @OA\Response(response=422, ref="#/components/responses/ValidationError")
+     * )
+     */
+    public function translateOcrUrl(TranslateOcrRequest $request)
+    {
+        $validated = $request->validated();
+
+        if ($request->hasFile('image')) {
+            return response()->json([
+                'message' => 'Please use /api/translations/ocr for file uploads.',
+            ], 422);
+        }
+
+        // Handle URL: send directly to NAVER API
+        $imageUrlForApi = $validated['image'];
+
+        // Extract text from image using Clova OCR
+        $ocrResult = $this->ocrService->extractText($imageUrlForApi);
+        $extractedText = $ocrResult['text'];
+
+        // Translate extracted text using Papago
+        $result = $this->papagoService->translate(
+            $extractedText,
+            $validated['target_language'],
+            $validated['source_language'] ?? null
+        );
+
+        // Save translation record without file path
+        $translation = Translation::create([
+            'user_id' => auth()->id(),
+            'source_type' => 'image',
+            'source_text' => $extractedText,
+            'source_language' => $validated['source_language'] ?? null,
+            'translated_text' => $result['translatedText'],
+            'target_language' => $validated['target_language'],
+            'file_path' => null,
         ]);
 
         return TranslationResource::make($translation)->response()->setStatusCode(201);
