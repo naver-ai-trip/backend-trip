@@ -22,9 +22,17 @@ class TranslateOcrRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'image' => ['required', 'file', 'mimes:jpeg,png,jpg,gif,webp', 'max:10240'], // 10MB in KB
+            'image' => ['required', 'url', 'regex:/\.(jpeg|jpg|png|gif|webp)(\?.*)?$/i'], // Image URL
             'source_language' => ['nullable', 'string'], // Optional: auto-detect if not provided
             'target_language' => ['required', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'image.url' => 'The image must be a valid URL.',
+            'image.regex' => 'The image URL must point to a valid image file (jpeg, jpg, png, gif, webp).',
         ];
     }
 }

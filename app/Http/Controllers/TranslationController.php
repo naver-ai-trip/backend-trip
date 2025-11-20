@@ -105,12 +105,27 @@ class TranslationController extends Controller
     {
         $validated = $request->validated();
 
-        // Store uploaded image on public disk
-        $filePath = $request->file('image')->store('translations/' . auth()->id(), config('filesystems.public_disk'));
+        // Get image from URL
+        $imageUrl = $validated['image'];
+        $imageContents = @file_get_contents($imageUrl);
+        
+        if ($imageContents === false) {
+            return response()->json([
+                'message' => 'Failed to download image from URL',
+            ], 422);
+        }
 
-        // Translate image text directly using Papago Image Translation API (null source_language = auto-detect)
+        // Generate unique filename and store image
+        $extension = pathinfo(parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'jpg';
+        $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
+        Storage::put($filename, $imageContents);
+
+        // Get public URL of saved image to send to Papago API
+        $savedImageUrl = Storage::url($filename);
+
+        // Translate image text directly using Papago Image Translation API
         $result = $this->papagoService->translateImage(
-            $request->file('image'),
+            $savedImageUrl,
             $validated['target_language'],
             $validated['source_language'] ?? null
         );
@@ -123,7 +138,7 @@ class TranslationController extends Controller
             'source_language' => $validated['source_language'] ?? null,
             'translated_text' => $result['translatedText'],
             'target_language' => $validated['target_language'],
-            'file_path' => $filePath,
+            'file_path' => $filename,
         ]);
 
         return TranslationResource::make($translation)->response()->setStatusCode(201);
@@ -161,14 +176,29 @@ class TranslationController extends Controller
     {
         $validated = $request->validated();
 
-        // Store uploaded image on public disk
-        $filePath = $request->file('image')->store('translations/' . auth()->id(), config('filesystems.public_disk'));
+        // Get image from URL
+        $imageUrl = $validated['image'];
+        $imageContents = @file_get_contents($imageUrl);
+        
+        if ($imageContents === false) {
+            return response()->json([
+                'message' => 'Failed to download image from URL',
+            ], 422);
+        }
+
+        // Generate unique filename and store image
+        $extension = pathinfo(parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'jpg';
+        $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
+        Storage::put($filename, $imageContents);
+
+        // Get public URL of saved image to send to OCR API
+        $savedImageUrl = Storage::url($filename);
 
         // Extract text from image using Clova OCR
-        $ocrResult = $this->ocrService->extractText($request->file('image'));
+        $ocrResult = $this->ocrService->extractText($savedImageUrl);
         $extractedText = $ocrResult['text'];
 
-        // Translate extracted text using Papago (null source_language = auto-detect)
+        // Translate extracted text using Papago
         $result = $this->papagoService->translate(
             $extractedText,
             $validated['target_language'],
@@ -183,7 +213,7 @@ class TranslationController extends Controller
             'source_language' => $validated['source_language'] ?? null,
             'translated_text' => $result['translatedText'],
             'target_language' => $validated['target_language'],
-            'file_path' => $filePath,
+            'file_path' => $filename,
         ]);
 
         return TranslationResource::make($translation)->response()->setStatusCode(201);
@@ -368,7 +398,7 @@ class TranslationController extends Controller
 
         // Delete file if exists
         if ($translation->file_path) {
-            Storage::disk(config('filesystems.public_disk'))->delete($translation->file_path);
+            Storage::delete($translation->file_path);
         }
 
         $translation->delete();
