@@ -115,18 +115,20 @@ class TranslationController extends Controller
             ], 422);
         }
 
-        // Handle file upload: save to storage and use Storage::url()
+        // Handle file upload: save to storage
         $file = $request->file('image');
         $extension = $file->extension();
         $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
+        
+        // Save to storage
         Storage::put($filename, file_get_contents($file->getRealPath()));
         
-        // Get filesystem path of saved image to send to Papago API
-        $imagePathForApi = Storage::path($filename);
+        // Get filesystem path to send to Papago API
+        $imagePath = Storage::path($filename);
 
         // Translate image text directly using Papago Image Translation API
         $result = $this->papagoService->translateImage(
-            $imagePathForApi,
+            $imagePath,
             $validated['target_language'],
             $validated['source_language'] ?? null
         );
@@ -184,28 +186,45 @@ class TranslationController extends Controller
             ], 422);
         }
 
-        // Handle URL: send directly to NAVER API
-        $imageUrlForApi = $validated['image'];
+        // Handle URL: download image and pass to NAVER API
+        $imageUrl = $validated['image'];
+        
+        // Download image from URL
+        $imageContents = @file_get_contents($imageUrl);
+        if ($imageContents === false) {
+            return response()->json([
+                'message' => 'Failed to download image from URL. Please ensure the URL is publicly accessible.',
+            ], 422);
+        }
+        
+        // Create temporary file for NAVER API
+        $tempPath = tempnam(sys_get_temp_dir(), 'papago_');
+        file_put_contents($tempPath, $imageContents);
+        
+        try {
+            // Translate image text directly using Papago Image Translation API
+            $result = $this->papagoService->translateImage(
+                $tempPath,
+                $validated['target_language'],
+                $validated['source_language'] ?? null
+            );
 
-        // Translate image text directly using Papago Image Translation API
-        $result = $this->papagoService->translateImage(
-            $imageUrlForApi,
-            $validated['target_language'],
-            $validated['source_language'] ?? null
-        );
+            // Save translation record without file path
+            $translation = Translation::create([
+                'user_id' => auth()->id(),
+                'source_type' => 'image',
+                'source_text' => $result['detectedText'],
+                'source_language' => $validated['source_language'] ?? null,
+                'translated_text' => $result['translatedText'],
+                'target_language' => $validated['target_language'],
+                'file_path' => null,
+            ]);
 
-        // Save translation record without file path
-        $translation = Translation::create([
-            'user_id' => auth()->id(),
-            'source_type' => 'image',
-            'source_text' => $result['detectedText'],
-            'source_language' => $validated['source_language'] ?? null,
-            'translated_text' => $result['translatedText'],
-            'target_language' => $validated['target_language'],
-            'file_path' => null,
-        ]);
-
-        return TranslationResource::make($translation)->response()->setStatusCode(201);
+            return TranslationResource::make($translation)->response()->setStatusCode(201);
+        } finally {
+            // Clean up temporary file
+            @unlink($tempPath);
+        }
     }
 
     /**
@@ -250,17 +269,19 @@ class TranslationController extends Controller
             ], 422);
         }
 
-        // Handle file upload: save to storage and use Storage::url()
+        // Handle file upload: save to storage
         $file = $request->file('image');
         $extension = $file->extension();
         $filename = 'translations/' . auth()->id() . '/' . uniqid('img_') . '.' . $extension;
+        
+        // Save to storage
         Storage::put($filename, file_get_contents($file->getRealPath()));
         
-        // Get filesystem path of saved image to send to OCR API
-        $imagePathForApi = Storage::path($filename);
+        // Get filesystem path to send to OCR API
+        $imagePath = Storage::path($filename);
 
         // Extract text from image using Clova OCR
-        $ocrResult = $this->ocrService->extractText($imagePathForApi);
+        $ocrResult = $this->ocrService->extractText($imagePath);
         $extractedText = $ocrResult['text'];
 
         // Translate extracted text using Papago
@@ -323,32 +344,49 @@ class TranslationController extends Controller
             ], 422);
         }
 
-        // Handle URL: send directly to NAVER API
-        $imageUrlForApi = $validated['image'];
+        // Handle URL: download image and pass to NAVER API
+        $imageUrl = $validated['image'];
+        
+        // Download image from URL
+        $imageContents = @file_get_contents($imageUrl);
+        if ($imageContents === false) {
+            return response()->json([
+                'message' => 'Failed to download image from URL. Please ensure the URL is publicly accessible.',
+            ], 422);
+        }
+        
+        // Create temporary file for NAVER API
+        $tempPath = tempnam(sys_get_temp_dir(), 'ocr_');
+        file_put_contents($tempPath, $imageContents);
+        
+        try {
+            // Extract text from image using Clova OCR
+            $ocrResult = $this->ocrService->extractText($tempPath);
+            $extractedText = $ocrResult['text'];
 
-        // Extract text from image using Clova OCR
-        $ocrResult = $this->ocrService->extractText($imageUrlForApi);
-        $extractedText = $ocrResult['text'];
+            // Translate extracted text using Papago
+            $result = $this->papagoService->translate(
+                $extractedText,
+                $validated['target_language'],
+                $validated['source_language'] ?? null
+            );
 
-        // Translate extracted text using Papago
-        $result = $this->papagoService->translate(
-            $extractedText,
-            $validated['target_language'],
-            $validated['source_language'] ?? null
-        );
+            // Save translation record without file path
+            $translation = Translation::create([
+                'user_id' => auth()->id(),
+                'source_type' => 'image',
+                'source_text' => $extractedText,
+                'source_language' => $validated['source_language'] ?? null,
+                'translated_text' => $result['translatedText'],
+                'target_language' => $validated['target_language'],
+                'file_path' => null,
+            ]);
 
-        // Save translation record without file path
-        $translation = Translation::create([
-            'user_id' => auth()->id(),
-            'source_type' => 'image',
-            'source_text' => $extractedText,
-            'source_language' => $validated['source_language'] ?? null,
-            'translated_text' => $result['translatedText'],
-            'target_language' => $validated['target_language'],
-            'file_path' => null,
-        ]);
-
-        return TranslationResource::make($translation)->response()->setStatusCode(201);
+            return TranslationResource::make($translation)->response()->setStatusCode(201);
+        } finally {
+            // Clean up temporary file
+            @unlink($tempPath);
+        }
     }
 
     /**
