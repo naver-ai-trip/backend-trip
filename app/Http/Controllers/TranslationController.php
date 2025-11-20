@@ -83,14 +83,11 @@ class TranslationController extends Controller
      *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
-     *         @OA\MediaType(
-     *             mediaType="multipart/form-data",
-     *             @OA\Schema(
-     *                 required={"image", "target_language"},
-     *                 @OA\Property(property="image", type="string", format="binary", description="Image file (max 10MB)"),
-     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
-     *                 @OA\Property(property="target_language", type="string", example="en")
-     *             )
+     *         @OA\JsonContent(
+     *             required={"image", "target_language"},
+     *             @OA\Property(property="image", type="string", format="uri", example="https://example.com/images/menu.jpg", description="Image URL (must be publicly accessible)"),
+     *             @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
+     *             @OA\Property(property="target_language", type="string", example="en", description="Target language code")
      *         )
      *     ),
      *     @OA\Response(
@@ -142,14 +139,11 @@ class TranslationController extends Controller
      *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
-     *         @OA\MediaType(
-     *             mediaType="multipart/form-data",
-     *             @OA\Schema(
-     *                 required={"image", "target_language"},
-     *                 @OA\Property(property="image", type="string", format="binary", description="Image file (max 10MB)"),
-     *                 @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
-     *                 @OA\Property(property="target_language", type="string", example="en")
-     *             )
+     *         @OA\JsonContent(
+     *             required={"image", "target_language"},
+     *             @OA\Property(property="image", type="string", format="uri", example="https://example.com/images/sign.jpg", description="Image URL (must be publicly accessible)"),
+     *             @OA\Property(property="source_language", type="string", example="ko", description="Source language (optional: auto-detect if omitted)", nullable=true),
+     *             @OA\Property(property="target_language", type="string", example="en", description="Target language code")
      *         )
      *     ),
      *     @OA\Response(
