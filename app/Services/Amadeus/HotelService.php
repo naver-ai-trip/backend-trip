@@ -186,6 +186,7 @@ class HotelService extends AmadeusService
             Log::error('Amadeus Hotel Offers Exception', [
                 'message' => $e->getMessage()
             ]);
+            dump($e->getMessage());
             return null;
         }
     }

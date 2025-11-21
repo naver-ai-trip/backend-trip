@@ -2,6 +2,7 @@
 
 namespace App\Services\Amadeus;
 
+use App\Exceptions\AmadeusApiException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
@@ -112,7 +113,7 @@ abstract class AmadeusService
 
     /**
      * Create HTTP client with Amadeus authentication
-     * 
+     *
      * @param string|null $version API version (v1, v2, v3) - if null, uses baseUrl as-is
      */
     protected function client(?string $version = null): ?PendingRequest
@@ -124,7 +125,7 @@ abstract class AmadeusService
         }
 
         $baseUrl = $this->baseUrl;
-        
+
         // If version is specified and different from base URL version, adjust
         if ($version && $version !== 'v1') {
             // Replace /v1 with the specified version in baseUrl
@@ -160,7 +161,11 @@ abstract class AmadeusService
 
         Log::error('Amadeus API Error', $error);
 
-        return null;
+        throw new AmadeusApiException(
+            "Amadeus API Error ({$context}): " . $errorMessage,
+            $response->status(),
+            $error
+        );
     }
 
     /**
