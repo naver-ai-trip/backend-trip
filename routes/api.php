@@ -5,6 +5,7 @@ use App\Http\Controllers\ChecklistItemController;
 use App\Http\Controllers\CheckpointImageController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\FlightController;
 use App\Http\Controllers\ItineraryItemController;
 use App\Http\Controllers\MapCheckpointController;
 use App\Http\Controllers\MapController;
@@ -123,4 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/hotels/ratings', [HotelController::class, 'getRatings'])->name('hotels.ratings');
     Route::post('/hotels/bookings', [HotelController::class, 'createBooking'])->name('hotels.bookings.store');
     Route::post('/hotels/search-with-offers', [HotelController::class, 'searchWithOffers'])->name('hotels.search-with-offers');
+
+    // Amadeus Flights
+    Route::post('/flights/search', [FlightController::class, 'searchOffers'])->name('flights.search');
 });
