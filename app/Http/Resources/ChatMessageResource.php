@@ -18,17 +18,12 @@ class ChatMessageResource extends JsonResource
             'id' => $this->id,
             'chat_session_id' => $this->chat_session_id,
             'from_role' => $this->from_role,
-            'message' => $this->message,
+            'message_type' => $this->message_type,
+            'content' => $this->content,
             'metadata' => $this->metadata,
-            'entity_type' => $this->entity_type,
-            'entity_id' => $this->entity_id,
+            'references' => $this->references,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-            
-            // Polymorphic relationship
-            'entity' => $this->when($this->entity, function () {
-                return $this->entity;
-            }),
         ];
     }
 }
