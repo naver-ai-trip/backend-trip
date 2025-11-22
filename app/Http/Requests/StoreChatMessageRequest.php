@@ -22,11 +22,13 @@ class StoreChatMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'message' => ['required', 'string'],
-            'from_role' => ['nullable', 'string', 'in:user,ai'],
+            'content' => ['required', 'string'],
+            'from_role' => ['nullable', 'string', 'in:user,assistant,system'],
+            'message_type' => ['nullable', 'string', 'in:text,suggestion,action_result,error'],
             'metadata' => ['nullable', 'array'],
-            'entity_type' => ['nullable', 'string'],
-            'entity_id' => ['nullable', 'integer'],
+            'references' => ['nullable', 'array'],
+            'references.*.type' => ['required_with:references', 'string'],
+            'references.*.id' => ['required_with:references', 'integer'],
         ];
     }
 
@@ -36,8 +38,9 @@ class StoreChatMessageRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'message.required' => 'The message content is required.',
-            'from_role.in' => 'The from_role must be either user or ai.',
+            'content.required' => 'The message content is required.',
+            'from_role.in' => 'The from_role must be either user, assistant, or system.',
+            'message_type.in' => 'The message_type must be text, suggestion, action_result, or error.',
         ];
     }
 }

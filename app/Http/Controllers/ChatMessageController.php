@@ -153,10 +153,10 @@ class ChatMessageController extends Controller
         $message = ChatMessage::create([
             'chat_session_id' => $chatSession->id,
             'from_role' => $request->input('from_role', 'user'),
-            'message' => $request->input('message'),
-            'metadata' => $request->input('metadata', []),
-            'entity_type' => $request->input('entity_type'),
-            'entity_id' => $request->input('entity_id'),
+            'message_type' => $request->input('message_type', 'text'),
+            'content' => $request->input('content'),
+            'metadata' => $request->input('metadata'),
+            'references' => $request->input('references'),
         ]);
 
         return (new ChatMessageResource($message))
