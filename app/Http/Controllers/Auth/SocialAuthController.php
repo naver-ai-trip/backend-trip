@@ -75,7 +75,7 @@ class SocialAuthController extends Controller
      *     )
      * )
      */
-    public function handleGoogleCallback(): JsonResponse
+    public function handleGoogleCallback()
     {
         try {
             $googleUser = Socialite::driver('google')->stateless()->user();
@@ -116,22 +116,31 @@ class SocialAuthController extends Controller
             // Create Sanctum token for API authentication
             $token = $user->createToken('google-auth')->plainTextToken;
 
-            return response()->json([
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'avatar_path' => $user->avatar_path,
-                    'provider' => $user->provider,
-                ],
+            // Redirect to frontend with user data and token as query parameters
+            $frontendUrl = config('app.frontend_url', env('FRONTEND_URL'));
+            
+            $queryParams = http_build_query([
                 'token' => $token,
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'avatar_path' => $user->avatar_path,
+                'provider' => $user->provider,
                 'message' => $message,
             ]);
+
+            return redirect($frontendUrl . '?' . $queryParams);
         } catch (\Exception $e) {
-            return response()->json([
+            // Redirect to frontend with error
+            $frontendUrl = config('app.frontend_url', env('FRONTEND_URL'));
+            
+            $queryParams = http_build_query([
+                'error' => 'authentication_failed',
                 'message' => 'Unable to authenticate with Google',
-                'error' => config('app.debug') ? $e->getMessage() : null,
-            ], 400);
+                'details' => config('app.debug') ? $e->getMessage() : null,
+            ]);
+
+            return redirect($frontendUrl . '/auth/callback?' . $queryParams);
         }
     }
 }
