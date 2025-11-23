@@ -2,7 +2,6 @@
 
 namespace Tests\Integration;
 
-use App\Services\Amadeus\FlightService;
 use App\Services\Amadeus\HotelService;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -14,7 +13,10 @@ use Tests\TestCase;
  * These tests are intended to hit the real Amadeus Travel APIs to verify:
  * - Credentials are working
  * - OAuth token negotiation succeeds
- * - Core hotel and flight search endpoints return real data
+ * - Core hotel search, offers, ratings, and booking endpoints return real data
+ *
+ * Services tested:
+ * - Amadeus API: Hotel search, offers, ratings, and bookings
  *
  * ⚠️ NOTE: These tests should be run manually with `--group=integration`
  * to avoid consuming API quota in normal CI runs.
@@ -27,17 +29,6 @@ class AmadeusApiIntegrationTest extends TestCase
 
         if (!$service->isEnabled()) {
             $this->markTestSkipped('Amadeus Hotel service is not enabled or credentials are missing.');
-        }
-
-        return $service;
-    }
-
-    private function resolveFlightService(): FlightService
-    {
-        $service = new FlightService();
-
-        if (!$service->isEnabled()) {
-            $this->markTestSkipped('Amadeus Flight service is not enabled or credentials are missing.');
         }
 
         return $service;
@@ -97,7 +88,7 @@ class AmadeusApiIntegrationTest extends TestCase
     #[Test]
     #[Group('integration')]
     #[Group('amadeus')]
-    public function it_can_fetch_offers_and_offer_details_for_real_hotels(): void
+    public function it_can_fetch_offer_details_and_create_booking_for_real_hotels(): void
     {
         $service = $this->resolveHotelService();
 
@@ -112,7 +103,7 @@ class AmadeusApiIntegrationTest extends TestCase
         dump($checkIn, $checkOut);
 
         $offers = $service->getHotelOffers(
-            array_slice($hotelIds, 0, 2),
+            array_slice($hotelIds, 0, 10),
             $checkIn,
             $checkOut,
             [
@@ -133,6 +124,7 @@ class AmadeusApiIntegrationTest extends TestCase
         $this->assertNotEmpty($offerId, 'Offer response should include an offer id.');
 
         $offerDetails = $service->getHotelOfferById($offerId);
+        dump($offerDetails);
 
         $this->assertIsArray($offerDetails);
         $this->assertArrayHasKey('offers', $offerDetails);
@@ -144,73 +136,141 @@ class AmadeusApiIntegrationTest extends TestCase
             '✅ Amadeus Hotel Offers' => 'SUCCESS',
             'check_in' => $checkIn,
             'check_out' => $checkOut,
-            'hotel_ids' => array_slice($hotelIds, 0, 2),
+            'hotel_ids' => array_slice($hotelIds, 0, 10),
             'sample_offer' => [
                 'offer_id' => $offerId,
                 'total' => $offerDetails['price']['total'] ?? null,
                 'currency' => $offerDetails['price']['currency'] ?? null,
             ],
         ]);
+
+        // Create hotel booking using the offer ID
+        $bookingData = [
+            'type' => 'hotel-order',
+            'guests' => [
+                [
+                    'tid' => 1,
+                    'title' => 'MR',
+                    'firstName' => 'TEST',
+                    'lastName' => 'GUEST',
+                    'phone' => '+1234567890',
+                    'email' => 'test.guest@example.com',
+                ],
+            ],
+            'travelAgent' => [
+                'contact' => [
+                    'email' => 'test.guest@example.com',
+                ],
+            ],
+            'roomAssociations' => [
+                [
+                    'hotelOfferId' => $offerId,
+                    'guestReferences' => [
+                        [
+                            'guestReference' => '1',
+                        ],
+                    ],
+                ],
+            ],
+            'payment' => [
+                'method' => 'CREDIT_CARD',
+                'paymentCard' => [
+                    'paymentCardInfo' => [
+                        'vendorCode' => 'VI',
+                        'cardNumber' => '4151289722471370',
+                        'expiryDate' => now()->addYears(2)->format('Y-m'),
+                        'holderName' => 'TEST GUEST',
+                    ],
+                ],
+            ],
+        ];
+
+        $booking = $service->createHotelBooking($bookingData);
+
+        $this->assertIsArray($booking, 'Booking should return an array response.');
+        $this->assertArrayHasKey('type', $booking);
+        $this->assertEquals('hotel-order', $booking['type']);
+        $this->assertArrayHasKey('id', $booking, 'Booking should have an order ID.');
+        $this->assertArrayHasKey('hotelBookings', $booking, 'Booking should have hotel bookings array.');
+
+        if (!empty($booking['hotelBookings'])) {
+            $hotelBooking = $booking['hotelBookings'][0];
+            $this->assertArrayHasKey('bookingStatus', $hotelBooking);
+            $this->assertArrayHasKey('id', $hotelBooking);
+        }
+
+        dump([
+            '✅ Amadeus Hotel Booking' => 'SUCCESS',
+            'order_id' => $booking['id'] ?? null,
+            'booking_status' => $booking['hotelBookings'][0]['bookingStatus'] ?? null,
+            'offer_id_used' => $offerId,
+        ]);
     }
 
     #[Test]
     #[Group('integration')]
     #[Group('amadeus')]
-    public function it_can_search_flight_offers(): void
+    public function it_can_search_hotels_with_offers(): void
     {
-        $service = $this->resolveFlightService();
+        $service = $this->resolveHotelService();
 
-        // Search for flights from New York to Paris, 3 months in the future
-        $departureDate = now()->addMonths(3)->format('Y-m-d');
-        $returnDate = now()->addMonths(3)->addDays(7)->format('Y-m-d');
+        // Search for hotels with offers in Paris
+        $latitude = 48.8566;
+        $longitude = 2.3522;
+        $checkIn = now()->addMonths(1)->format('Y-m-d');
+        $checkOut = now()->addMonths(1)->addDays(2)->format('Y-m-d');
 
-        $parameters = [
-            'originLocationCode' => 'NYC',
-            'destinationLocationCode' => 'PAR',
-            'departureDate' => $departureDate,
-            'returnDate' => $returnDate,
-            'adults' => 1,
-            'travelClass' => 'ECONOMY',
-            'currencyCode' => 'USD',
-            'max' => 5,
-        ];
-
-        $results = $service->searchFlightOffers($parameters);
+        $results = $service->searchHotelsWithOffers(
+            $latitude,
+            $longitude,
+            $checkIn,
+            $checkOut,
+            [
+                'radius' => 5,
+                'radiusUnit' => 'KM',
+                'adults' => 1,
+                'roomQuantity' => 1,
+                'currency' => 'EUR',
+            ]
+        );
 
         $this->assertIsArray($results);
-        $this->assertNotEmpty($results, 'Expected at least one flight offer for NYC to PAR.');
+        $this->assertArrayHasKey('hotels', $results);
+        $this->assertArrayHasKey('offers', $results);
+        $this->assertIsArray($results['hotels']);
+        $this->assertIsArray($results['offers']);
 
-        $offer = $results[0];
-        $this->assertArrayHasKey('id', $offer);
-        $this->assertArrayHasKey('source', $offer);
-        $this->assertArrayHasKey('itineraries', $offer);
-        $this->assertArrayHasKey('price', $offer);
+        // Validate hotels structure
+        if (!empty($results['hotels'])) {
+            $hotel = $results['hotels'][0];
+            $this->assertArrayHasKey('hotelId', $hotel);
+            $this->assertArrayHasKey('name', $hotel);
+            $this->assertArrayHasKey('geoCode', $hotel);
+        }
 
-        // Validate itinerary structure
-        $this->assertNotEmpty($offer['itineraries'], 'Offer should have at least one itinerary.');
-        $itinerary = $offer['itineraries'][0];
-        $this->assertArrayHasKey('segments', $itinerary);
-        $this->assertNotEmpty($itinerary['segments'], 'Itinerary should have at least one segment.');
+        // Validate offers structure
+        if (!empty($results['offers'])) {
+            $hotelWithOffers = $results['offers'][0];
+            $this->assertArrayHasKey('offers', $hotelWithOffers);
+            $this->assertIsArray($hotelWithOffers['offers']);
 
-        // Validate price structure
-        $price = $offer['price'];
-        $this->assertArrayHasKey('total', $price);
-        $this->assertArrayHasKey('currency', $price);
+            if (!empty($hotelWithOffers['offers'])) {
+                $offer = $hotelWithOffers['offers'][0];
+                $this->assertArrayHasKey('id', $offer);
+                $this->assertArrayHasKey('price', $offer);
+            }
+        }
 
         dump([
-            '✅ Amadeus Flight Offers Search' => 'SUCCESS',
-            'route' => 'NYC → PAR',
-            'departure_date' => $departureDate,
-            'return_date' => $returnDate,
-            'returned' => count($results) . ' offers',
-            'sample_offer' => [
-                'id' => $offer['id'],
-                'source' => $offer['source'],
-                'price' => [
-                    'total' => $price['total'],
-                    'currency' => $price['currency'],
-                ],
-                'segments' => count($itinerary['segments']),
+            '✅ Amadeus Search Hotels with Offers' => 'SUCCESS',
+            'location' => ['lat' => $latitude, 'lng' => $longitude],
+            'check_in' => $checkIn,
+            'check_out' => $checkOut,
+            'hotels_found' => count($results['hotels']),
+            'hotels_with_offers' => count($results['offers']),
+            'sample' => [
+                'hotel' => $results['hotels'][0] ?? null,
+                'offer' => $results['offers'][0]['offers'][0] ?? null,
             ],
         ]);
     }
@@ -218,46 +278,45 @@ class AmadeusApiIntegrationTest extends TestCase
     #[Test]
     #[Group('integration')]
     #[Group('amadeus')]
-    public function it_can_search_one_way_flight_offers(): void
+    public function it_can_get_hotel_ratings(): void
     {
-        $service = $this->resolveFlightService();
+        $service = $this->resolveHotelService();
 
-        // Search for one-way flights from Tokyo to Seoul, 2 months in the future
-        $departureDate = now()->addMonths(2)->format('Y-m-d');
+        // First, get some hotel IDs from a city search
+        $cityHotels = $service->searchHotelsByCity('NYC');
+        $this->assertNotEmpty($cityHotels, 'Expected hotels to fetch ratings for.');
 
-        $parameters = [
-            'originLocationCode' => 'NRT',
-            'destinationLocationCode' => 'ICN',
-            'departureDate' => $departureDate,
-            'adults' => 1,
-            'travelClass' => 'ECONOMY',
-            'currencyCode' => 'USD',
-            'max' => 3,
-        ];
+        $hotelIds = array_values(array_filter(array_column($cityHotels, 'hotelId')));
+        $this->assertNotEmpty($hotelIds, 'City search should yield hotel IDs.');
 
-        $results = $service->searchFlightOffers($parameters);
+        // Get ratings for up to 3 hotels (API limit)
+        $hotelIdsForRatings = array_slice($hotelIds, 0, 3);
+        $ratings = $service->getHotelRatings($hotelIdsForRatings);
 
-        $this->assertIsArray($results);
-        $this->assertNotEmpty($results, 'Expected at least one one-way flight offer for NRT to ICN.');
+        $this->assertIsArray($ratings);
+        $this->assertNotEmpty($ratings, 'Expected at least one hotel rating.');
 
-        $offer = $results[0];
-        $this->assertArrayHasKey('id', $offer);
-        $this->assertArrayHasKey('itineraries', $offer);
-        $this->assertArrayHasKey('price', $offer);
+        // Validate rating structure
+        $rating = $ratings[0];
+        $this->assertArrayHasKey('hotelId', $rating);
+        $this->assertArrayHasKey('overallRating', $rating);
 
-        // One-way flights should have only one itinerary
-        $this->assertCount(1, $offer['itineraries'], 'One-way flight should have exactly one itinerary.');
+        // Check for sentiment data if available
+        if (isset($rating['sentiments'])) {
+            $this->assertIsArray($rating['sentiments']);
+        }
 
         dump([
-            '✅ Amadeus One-Way Flight Offers' => 'SUCCESS',
-            'route' => 'NRT → ICN (one-way)',
-            'departure_date' => $departureDate,
-            'returned' => count($results) . ' offers',
-            'sample_offer' => [
-                'id' => $offer['id'],
-                'price_total' => $offer['price']['total'] ?? null,
-                'price_currency' => $offer['price']['currency'] ?? null,
-            ],
+            '✅ Amadeus Hotel Ratings' => 'SUCCESS',
+            'hotel_ids_requested' => $hotelIdsForRatings,
+            'ratings_returned' => count($ratings),
+            'sample_ratings' => array_map(function ($rating) {
+                return [
+                    'hotel_id' => $rating['hotelId'] ?? null,
+                    'overall_rating' => $rating['overallRating'] ?? null,
+                    'sentiments_count' => isset($rating['sentiments']) ? count($rating['sentiments']) : 0,
+                ];
+            }, array_slice($ratings, 0, 3)),
         ]);
     }
 }

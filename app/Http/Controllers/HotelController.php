@@ -19,8 +19,7 @@ class HotelController extends Controller
 {
     public function __construct(
         private HotelService $hotelService
-    ) {
-    }
+    ) {}
 
     /**
      * Search for hotels by city, geocode, or hotel IDs.
@@ -278,33 +277,163 @@ class HotelController extends Controller
     }
 
     /**
-     * Create a hotel booking.
+     * Create a hotel booking (hotel order).
+     *
+     * Creates a hotel booking using the Amadeus Hotel Booking API. This endpoint requires
+     * a valid hotel offer ID obtained from the hotel offers search endpoint.
+     *
+     * ⚠️ **Warning**: In test environment, this creates real bookings. Excessive fake/canceled
+     * reservations may result in being blacklisted by hotel providers.
      *
      * @OA\Post(
      *     path="/api/hotels/bookings",
      *     summary="Create a hotel booking",
+     *     description="Creates a hotel booking (hotel order) using a valid hotel offer ID from the availability search. The booking includes guest information, room associations, and payment details.",
+     *     operationId="createHotelBooking",
      *     tags={"Hotels"},
      *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
+     *         description="Hotel booking request data",
      *         @OA\JsonContent(
      *             required={"offer_id", "guests", "payment"},
-     *             @OA\Property(property="offer_id", type="string", example="ABC123XYZ"),
-     *             @OA\Property(property="guests", type="array", @OA\Items(
-     *                 @OA\Property(property="name", type="string", example="John Doe"),
-     *                 @OA\Property(property="contact", type="object",
-     *                     @OA\Property(property="phone", type="string", example="+1234567890"),
-     *                     @OA\Property(property="email", type="string", format="email", example="john@example.com")
+     *             @OA\Property(
+     *                 property="offer_id",
+     *                 type="string",
+     *                 example="4L8PRJPEN7",
+     *                 description="Hotel offer ID from hotel offers search response. Must be a valid, non-expired offer ID.",
+     *                 maxLength=100
+     *             ),
+     *             @OA\Property(
+     *                 property="guests",
+     *                 type="array",
+     *                 description="Array of guest information. At least one guest is required.",
+     *                 minItems=1,
+     *                 @OA\Items(
+     *                     type="object",
+     *                     required={"first_name", "last_name", "phone", "email"},
+     *                     @OA\Property(
+     *                         property="tid",
+     *                         type="integer",
+     *                         example=1,
+     *                         description="Temporary guest ID. Auto-generated if not provided (starts from 1)."
+     *                     ),
+     *                     @OA\Property(
+     *                         property="title",
+     *                         type="string",
+     *                         example="MR",
+     *                         description="Guest title/gender (MR, MRS, MS, etc.). Optional, max 54 characters.",
+     *                         maxLength=54,
+     *                         pattern="^[A-Za-z -]*$"
+     *                     ),
+     *                     @OA\Property(
+     *                         property="first_name",
+     *                         type="string",
+     *                         example="BOB",
+     *                         description="Guest first name (and middle name). Required, max 56 characters.",
+     *                         maxLength=56,
+     *                         minLength=1
+     *                     ),
+     *                     @OA\Property(
+     *                         property="last_name",
+     *                         type="string",
+     *                         example="SMITH",
+     *                         description="Guest last name. Required, max 57 characters.",
+     *                         maxLength=57,
+     *                         minLength=1
+     *                     ),
+     *                     @OA\Property(
+     *                         property="phone",
+     *                         type="string",
+     *                         example="+33679278416",
+     *                         description="Guest phone number. Required. E.123 format recommended (e.g., +33679278416).",
+     *                         maxLength=199,
+     *                         minLength=2
+     *                     ),
+     *                     @OA\Property(
+     *                         property="email",
+     *                         type="string",
+     *                         format="email",
+     *                         example="bob.smith@email.com",
+     *                         description="Guest email address. Required, must be a valid email format.",
+     *                         maxLength=90,
+     *                         minLength=3
+     *                     ),
+     *                     @OA\Property(
+     *                         property="child_age",
+     *                         type="integer",
+     *                         example=null,
+     *                         description="Child age if the guest is a child. If provided, the guest will be treated as a child. If not provided and guest is not an adult, the system will consider them as an adult."
+     *                     )
      *                 )
-     *             )),
-     *             @OA\Property(property="payment", type="object",
-     *                 @OA\Property(property="method", type="string", enum={"CREDIT_CARD"}, example="CREDIT_CARD"),
-     *                 @OA\Property(property="card", type="object",
-     *                     @OA\Property(property="vendor_code", type="string", example="VI"),
-     *                     @OA\Property(property="card_number", type="string", example="4111111111111111"),
-     *                     @OA\Property(property="expiry_date", type="string", example="12/25"),
-     *                     @OA\Property(property="card_holder_name", type="string", example="John Doe"),
-     *                     @OA\Property(property="card_type", type="string", enum={"CREDIT", "DEBIT"}, example="CREDIT")
+     *             ),
+     *             @OA\Property(
+     *                 property="payment",
+     *                 type="object",
+     *                 required={"method", "payment_card"},
+     *                 description="Payment information for the booking",
+     *                 @OA\Property(
+     *                     property="method",
+     *                     type="string",
+     *                     enum={"CREDIT_CARD"},
+     *                     example="CREDIT_CARD",
+     *                     description="Payment method. Currently only CREDIT_CARD is supported."
+     *                 ),
+     *                 @OA\Property(
+     *                     property="payment_card",
+     *                     type="object",
+     *                     required={"vendor_code", "card_number", "expiry_date", "holder_name"},
+     *                     description="Payment card information",
+     *                     @OA\Property(
+     *                         property="vendor_code",
+     *                         type="string",
+     *                         example="VI",
+     *                         description="Card vendor code. Common values: VI (Visa), MC (MasterCard), AX (American Express), etc."
+     *                     ),
+     *                     @OA\Property(
+     *                         property="card_number",
+     *                         type="string",
+     *                         example="4151289722471370",
+     *                         description="Credit card number. Full card number without spaces or dashes."
+     *                     ),
+     *                     @OA\Property(
+     *                         property="expiry_date",
+     *                         type="string",
+     *                         example="2026-08",
+     *                         description="Card expiry date in YYYY-MM format (e.g., 2026-08 for August 2026).",
+     *                         pattern="^\d{4}-\d{2}$"
+     *                     ),
+     *                     @OA\Property(
+     *                         property="holder_name",
+     *                         type="string",
+     *                         example="BOB SMITH",
+     *                         description="Card holder name as it appears on the card."
+     *                     ),
+     *                     @OA\Property(
+     *                         property="security_code",
+     *                         type="string",
+     *                         example=null,
+     *                         description="Card security code (CVV/CVC). Optional but may be required by some hotel providers."
+     *                     )
+     *                 )
+     *             ),
+     *             @OA\Property(
+     *                 property="travel_agent",
+     *                 type="object",
+     *                 description="Travel agent contact information. Optional.",
+     *                 @OA\Property(
+     *                     property="contact",
+     *                     type="object",
+     *                     description="Travel agent contact details",
+     *                     @OA\Property(
+     *                         property="email",
+     *                         type="string",
+     *                         format="email",
+     *                         example="agent@travelagency.com",
+     *                         description="Travel agent contact email address. Optional.",
+     *                         maxLength=90,
+     *                         minLength=3
+     *                     )
      *                 )
      *             )
      *         )
@@ -314,26 +443,171 @@ class HotelController extends Controller
      *         description="Hotel booking created successfully",
      *         @OA\JsonContent(
      *             @OA\Property(property="message", type="string", example="Hotel booking created successfully"),
-     *             @OA\Property(property="data", ref="#/components/schemas/HotelBooking")
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 description="Hotel order/booking confirmation data",
+     *                 @OA\Property(property="type", type="string", example="hotel-order"),
+     *                 @OA\Property(property="id", type="string", example="V0g2VFJaLzIwMjQtMDYtMDc=", description="Hotel order ID"),
+     *                 @OA\Property(
+     *                     property="hotelBookings",
+     *                     type="array",
+     *                     description="Array of hotel bookings in this order",
+     *                     @OA\Items(
+     *                         type="object",
+     *                         @OA\Property(property="type", type="string", example="hotel-booking"),
+     *                         @OA\Property(property="id", type="string", example="MS84OTkyMjcxMC85MDIyNDU0OQ==", description="Hotel booking ID"),
+     *                         @OA\Property(property="bookingStatus", type="string", example="CONFIRMED", description="Booking status (e.g., CONFIRMED, PENDING)"),
+     *                         @OA\Property(
+     *                             property="hotelProviderInformation",
+     *                             type="array",
+     *                             description="Hotel provider confirmation details",
+     *                             @OA\Items(
+     *                                 type="object",
+     *                                 @OA\Property(property="hotelProviderCode", type="string", example="AR"),
+     *                                 @OA\Property(property="confirmationNumber", type="string", example="89922710")
+     *                             )
+     *                         ),
+     *                         @OA\Property(
+     *                             property="roomAssociations",
+     *                             type="array",
+     *                             description="Room associations with guest references",
+     *                             @OA\Items(
+     *                                 type="object",
+     *                                 @OA\Property(property="hotelOfferId", type="string", example="4L8PRJPEN7"),
+     *                                 @OA\Property(
+     *                                     property="guestReferences",
+     *                                     type="array",
+     *                                     @OA\Items(
+     *                                         type="object",
+     *                                         @OA\Property(property="guestReference", type="string", example="1")
+     *                                     )
+     *                                 )
+     *                             )
+     *                         ),
+     *                         @OA\Property(
+     *                             property="hotel",
+     *                             type="object",
+     *                             description="Hotel information",
+     *                             @OA\Property(property="hotelId", type="string", example="ARMADAIT"),
+     *                             @OA\Property(property="chainCode", type="string", example="AR"),
+     *                             @OA\Property(property="name", type="string", example="AC BY MARRIOTT HOTEL AITANA")
+     *                         )
+     *                     )
+     *                 ),
+     *                 @OA\Property(
+     *                     property="guests",
+     *                     type="array",
+     *                     description="Guest information",
+     *                     @OA\Items(
+     *                         type="object",
+     *                         @OA\Property(property="tid", type="integer", example=1),
+     *                         @OA\Property(property="id", type="integer", example=1),
+     *                         @OA\Property(property="title", type="string", example="MR"),
+     *                         @OA\Property(property="firstName", type="string", example="BOB"),
+     *                         @OA\Property(property="lastName", type="string", example="SMITH"),
+     *                         @OA\Property(property="phone", type="string", example="+33679278416"),
+     *                         @OA\Property(property="email", type="string", example="bob.smith@email.com")
+     *                     )
+     *                 )
+     *             )
      *         )
      *     ),
-     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
-     *     @OA\Response(response=422, ref="#/components/responses/ValidationError"),
-     *     @OA\Response(response=503, ref="#/components/responses/ServiceUnavailable")
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized - Authentication required",
+     *         ref="#/components/responses/Unauthorized"
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error - Invalid request data",
+     *         ref="#/components/responses/ValidationError"
+     *     ),
+     *     @OA\Response(
+     *         response=503,
+     *         description="Service unavailable - Hotel booking service is currently unavailable or booking failed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Hotel booking service is currently unavailable or booking failed")
+     *         )
+     *     )
      * )
      */
     public function createBooking(CreateHotelBookingRequest $request): JsonResponse
     {
-        $bookingData = [
-            'offerId' => $request->input('offer_id'),
-            'guests' => $request->input('guests'),
-            'payments' => [
-                [
-                    'method' => $request->input('payment.method'),
-                    'card' => $request->input('payment.card'),
-                ]
-            ],
+        // Transform guests to match API reference schema
+        $guests = [];
+        foreach ($request->input('guests') as $index => $guest) {
+            $guestData = [
+                'tid' => $guest['tid'] ?? ($index + 1),
+                'firstName' => $guest['first_name'],
+                'lastName' => $guest['last_name'],
+                'phone' => $guest['phone'],
+                'email' => $guest['email'],
+            ];
+
+            if (isset($guest['title'])) {
+                $guestData['title'] = $guest['title'];
+            }
+
+            if (isset($guest['child_age'])) {
+                $guestData['childAge'] = $guest['child_age'];
+            }
+
+            $guests[] = $guestData;
+        }
+
+        // Build roomAssociations with guest references
+        $guestReferences = [];
+        foreach ($guests as $index => $guest) {
+            $guestReferences[] = [
+                'guestReference' => (string) $guest['tid']
+            ];
+        }
+
+        $roomAssociations = [
+            [
+                'hotelOfferId' => $request->input('offer_id'),
+                'guestReferences' => $guestReferences,
+            ]
         ];
+
+        // Transform payment to match API reference schema
+        $paymentCard = $request->input('payment.payment_card');
+        $payment = [
+            'method' => $request->input('payment.method'),
+            'paymentCard' => [
+                'paymentCardInfo' => [
+                    'vendorCode' => $paymentCard['vendor_code'],
+                    'cardNumber' => $paymentCard['card_number'],
+                    'expiryDate' => $paymentCard['expiry_date'],
+                    'holderName' => $paymentCard['holder_name'],
+                ]
+            ]
+        ];
+
+        if (isset($paymentCard['security_code'])) {
+            $payment['paymentCard']['paymentCardInfo']['securityCode'] = $paymentCard['security_code'];
+        }
+
+        // Build booking data matching API reference schema
+        $bookingData = [
+            'type' => 'hotel-order',
+            'guests' => $guests,
+            'roomAssociations' => $roomAssociations,
+            'payment' => $payment,
+        ];
+
+        // Add travel agent if provided
+        if ($request->has('travel_agent')) {
+            $travelAgent = $request->input('travel_agent');
+            if (isset($travelAgent['contact']['email'])) {
+                $bookingData['travelAgent'] = [
+                    'contact' => [
+                        'email' => $travelAgent['contact']['email']
+                    ]
+                ];
+            }
+        }
 
         $booking = $this->hotelService->createHotelBooking($bookingData);
 
@@ -429,4 +703,3 @@ class HotelController extends Controller
         ]);
     }
 }
-

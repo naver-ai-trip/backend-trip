@@ -47,7 +47,7 @@ return [
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/auth/google/callback'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL') . '/auth/google/callback'),
     ],
 
     /*
@@ -91,11 +91,11 @@ return [
         ],
 
         // Papago Translation API
-    'papago' => [
-        'client_id' => env('NAVER_PAPAGO_CLIENT_ID'),
-        'client_secret' => env('NAVER_PAPAGO_CLIENT_SECRET'),
-        'base_url' => 'https://papago.apigw.ntruss.com',
-        'enabled' => env('NAVER_PAPAGO_ENABLED', true),
+        'papago' => [
+            'client_id' => env('NAVER_PAPAGO_CLIENT_ID'),
+            'client_secret' => env('NAVER_PAPAGO_CLIENT_SECRET'),
+            'base_url' => 'https://papago.apigw.ntruss.com',
+            'enabled' => env('NAVER_PAPAGO_ENABLED', true),
         ],        // Clova OCR API
         'ocr' => [
             'url' => env('NAVER_CLOVA_OCR_URL'),
@@ -159,6 +159,26 @@ return [
         'retry_times' => env('AMADEUS_RETRY_TIMES', 3),
         'retry_sleep' => env('AMADEUS_RETRY_SLEEP', 1000),
         'enabled' => env('AMADEUS_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | SerpAPI Services
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for SerpAPI (Google Search Results API)
+    | Documentation: https://serpapi.com/
+    | Registration: https://serpapi.com/users/sign_up
+    |
+    */
+
+    'serpapi' => [
+        'api_key' => env('SERPAPI_API_KEY'),
+        'base_url' => env('SERPAPI_BASE_URL', 'https://serpapi.com/search.json'),
+        'timeout' => env('SERPAPI_TIMEOUT', 30),
+        'retry_times' => env('SERPAPI_RETRY_TIMES', 3),
+        'retry_sleep' => env('SERPAPI_RETRY_SLEEP', 1000),
+        'enabled' => env('SERPAPI_ENABLED', true),
     ],
 
 ];

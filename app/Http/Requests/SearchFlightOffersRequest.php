@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 /**
  * Validate flight offer search requests.
@@ -26,23 +25,30 @@ class SearchFlightOffersRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'origin_location_code' => ['required', 'string', 'size:3'],
-            'destination_location_code' => ['required', 'string', 'size:3'],
-            'departure_date' => ['required', 'date', 'after_or_equal:today', 'date_format:Y-m-d'],
-            'return_date' => ['nullable', 'date', 'after:departure_date', 'date_format:Y-m-d'],
-            'adults' => ['required', 'integer', 'min:1', 'max:9'],
-            'children' => ['nullable', 'integer', 'min:0', 'max:9'],
-            'infants' => ['nullable', 'integer', 'min:0', 'max:9'],
-            'travel_class' => ['nullable', 'string', Rule::in(['ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', 'FIRST'])],
-            'non_stop' => ['nullable', 'boolean'],
-            'currency_code' => ['nullable', 'string', 'size:3'],
-            'max_price' => ['nullable', 'numeric', 'min:1'],
-            'max' => ['nullable', 'integer', 'min:1', 'max:250'],
-            'included_checked_bags_only' => ['nullable', 'boolean'],
-            'one_way' => ['nullable', 'boolean'],
-            'sources' => ['nullable', 'array', 'min:1'],
-            'sources.*' => ['string'],
+            'departure_id' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'arrival_id' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'outbound_date' => ['required', 'date', 'after_or_equal:today', 'date_format:Y-m-d'],
+            'return_date' => ['nullable', 'date', 'after:outbound_date', 'date_format:Y-m-d'],
         ];
+    }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        // Convert to uppercase for IATA codes
+        if ($this->has('departure_id')) {
+            $this->merge([
+                'departure_id' => strtoupper($this->input('departure_id')),
+            ]);
+        }
+
+        if ($this->has('arrival_id')) {
+            $this->merge([
+                'arrival_id' => strtoupper($this->input('arrival_id')),
+            ]);
+        }
     }
 
     /**
@@ -51,8 +57,17 @@ class SearchFlightOffersRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'origin_location_code.size' => 'Origin location code must be a 3-letter IATA code.',
-            'destination_location_code.size' => 'Destination location code must be a 3-letter IATA code.',
+            'departure_id.required' => 'Departure airport IATA code is required.',
+            'departure_id.size' => 'Departure airport code must be exactly 3 characters.',
+            'departure_id.regex' => 'Departure airport code must be a valid 3-letter IATA code (e.g., LAX, JFK).',
+            'arrival_id.required' => 'Arrival airport IATA code is required.',
+            'arrival_id.size' => 'Arrival airport code must be exactly 3 characters.',
+            'arrival_id.regex' => 'Arrival airport code must be a valid 3-letter IATA code (e.g., AUS, SFO).',
+            'outbound_date.required' => 'Outbound date is required.',
+            'outbound_date.after_or_equal' => 'Outbound date must be today or in the future.',
+            'outbound_date.date_format' => 'Outbound date must be in YYYY-MM-DD format.',
+            'return_date.after' => 'Return date must be after the outbound date.',
+            'return_date.date_format' => 'Return date must be in YYYY-MM-DD format.',
         ];
     }
 }

@@ -254,12 +254,14 @@ class HotelService extends AmadeusService
         try {
             $response = $client->get('/e-reputation/hotel-sentiments', $params);
             $data = $this->handleResponse($response, 'Hotel Ratings');
+            dump($data);
 
             return $data['data'] ?? [];
         } catch (\Exception $e) {
             Log::error('Amadeus Hotel Ratings Exception', [
                 'message' => $e->getMessage()
             ]);
+            dump($e->getMessage());
             return null;
         }
     }
@@ -267,7 +269,12 @@ class HotelService extends AmadeusService
     /**
      * Create a hotel booking
      *
-     * @param array $bookingData Booking data including offerId, guests, payments
+     * @param array $bookingData Booking data matching Amadeus API schema:
+     *   - type: "hotel-order"
+     *   - guests: Array of guest objects with tid, title, firstName, lastName, phone, email
+     *   - roomAssociations: Array with hotelOfferId and guestReferences
+     *   - payment: Payment object with method, paymentCard
+     *   - travelAgent: Optional travel agent contact
      * @return array|null Booking confirmation or null if error
      */
     public function createHotelBooking(array $bookingData): ?array
@@ -277,24 +284,30 @@ class HotelService extends AmadeusService
             return null;
         }
 
-        $client = $this->client();
+        // Use v2 client for hotel booking API
+        $client = $this->client('v2');
         if (!$client) {
             return null;
         }
 
-        $this->logApiCall('POST', '/booking/hotel-bookings', $bookingData);
+        // Ensure the data structure matches the API reference
+        $requestBody = [
+            'data' => $bookingData
+        ];
+
+        $this->logApiCall('POST', '/booking/hotel-orders', $requestBody);
 
         try {
-            $response = $client->post('/booking/hotel-bookings', [
-                'data' => $bookingData
-            ]);
+            $response = $client->post('/booking/hotel-orders', $requestBody);
             $data = $this->handleResponse($response, 'Hotel Booking');
+            dump($data);
 
             return $data['data'] ?? null;
         } catch (\Exception $e) {
             Log::error('Amadeus Hotel Booking Exception', [
                 'message' => $e->getMessage()
             ]);
+            dump($e->getMessage());
             return null;
         }
     }

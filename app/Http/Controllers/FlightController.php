@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SearchFlightOffersRequest;
-use App\Services\Amadeus\FlightService;
+use App\Services\SerpAPI\FlightService;
 use Illuminate\Http\JsonResponse;
 
 /**
  * FlightController
  *
- * Provides endpoints for Amadeus Flight Offers Search.
+ * Provides endpoints for SerpAPI Google Flights Search.
  */
 class FlightController extends Controller
 {
@@ -18,58 +18,128 @@ class FlightController extends Controller
     ) {}
 
     /**
-     * Search for flight offers (Amadeus Flight Offers Search API).
+     * Search for flight offers (SerpAPI Google Flights API).
+     *
+     * Searches for flight offers between two airports using SerpAPI's Google Flights integration.
+     * Requires airport IATA codes for departure and arrival locations.
      *
      * @OA\Post(
      *     path="/api/flights/search",
      *     summary="Search for flight offers",
+     *     description="Searches for flight offers between departure and arrival airports using SerpAPI Google Flights. Requires airport IATA codes (e.g., 'LAX', 'JFK', 'AUS'). Supports both round-trip and one-way flights.",
+     *     operationId="searchFlightOffers",
      *     tags={"Flights"},
      *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
+     *         description="Flight search parameters. Requires airport IATA codes.",
      *         @OA\JsonContent(
-     *             required={"origin_location_code","destination_location_code","departure_date","adults"},
-     *             @OA\Property(property="origin_location_code", type="string", example="ICN"),
-     *             @OA\Property(property="destination_location_code", type="string", example="JFK"),
-     *             @OA\Property(property="departure_date", type="string", format="date", example="2025-06-01"),
-     *             @OA\Property(property="return_date", type="string", format="date", example="2025-06-10"),
-     *             @OA\Property(property="adults", type="integer", example=1, minimum=1, maximum=9),
-     *             @OA\Property(property="children", type="integer", example=1, minimum=0, maximum=9),
-     *             @OA\Property(property="infants", type="integer", example=0, minimum=0, maximum=9),
-     *             @OA\Property(property="travel_class", type="string", enum={"ECONOMY","PREMIUM_ECONOMY","BUSINESS","FIRST"}),
-     *             @OA\Property(property="non_stop", type="boolean", example=false),
-     *             @OA\Property(property="currency_code", type="string", example="USD"),
-     *             @OA\Property(property="max_price", type="number", example=1500),
-     *             @OA\Property(property="max", type="integer", example=50),
-     *             @OA\Property(property="included_checked_bags_only", type="boolean", example=true),
-     *             @OA\Property(property="one_way", type="boolean", example=false),
-     *             @OA\Property(property="sources", type="array", @OA\Items(type="string"), example={"GDS"})
+     *             required={"departure_id","arrival_id","outbound_date"},
+     *             @OA\Property(
+     *                 property="departure_id",
+     *                 type="string",
+     *                 example="LAX",
+     *                 description="Departure airport IATA code (e.g., 'LAX', 'JFK', 'NYC'). Must be a valid 3-letter airport code.",
+     *                 minLength=3,
+     *                 maxLength=3
+     *             ),
+     *             @OA\Property(
+     *                 property="arrival_id",
+     *                 type="string",
+     *                 example="AUS",
+     *                 description="Arrival airport IATA code (e.g., 'AUS', 'SFO', 'PAR'). Must be a valid 3-letter airport code.",
+     *                 minLength=3,
+     *                 maxLength=3
+     *             ),
+     *             @OA\Property(
+     *                 property="outbound_date",
+     *                 type="string",
+     *                 format="date",
+     *                 example="2025-10-14",
+     *                 description="Outbound (departure) date in YYYY-MM-DD format. Must be today or in the future."
+     *             ),
+     *             @OA\Property(
+     *                 property="return_date",
+     *                 type="string",
+     *                 format="date",
+     *                 nullable=true,
+     *                 example="2025-10-21",
+     *                 description="Return date in YYYY-MM-DD format. Optional for one-way flights. Must be after outbound date if provided."
+     *             )
      *         )
      *     ),
      *     @OA\Response(
      *         response=200,
      *         description="Flight offers returned successfully",
      *         @OA\JsonContent(
-     *             @OA\Property(property="data", type="array", @OA\Items(type="object")),
-     *             @OA\Property(property="meta", type="object",
-     *                 @OA\Property(property="total_offers", type="integer", example=15),
-     *                 @OA\Property(property="origin", type="string", example="ICN"),
-     *                 @OA\Property(property="destination", type="string", example="JFK"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="array",
+     *                 description="Array of flight offers",
+     *                 @OA\Items(
+     *                     type="object",
+     *                     @OA\Property(property="id", type="string", example="1", description="Flight offer ID"),
+     *                     @OA\Property(property="source", type="string", example="GDS", description="Data source"),
+     *                     @OA\Property(
+     *                         property="itineraries",
+     *                         type="array",
+     *                         description="Flight itineraries",
+     *                         @OA\Items(type="object")
+     *                     ),
+     *                     @OA\Property(
+     *                         property="price",
+     *                         type="object",
+     *                         description="Price information",
+     *                         @OA\Property(property="total", type="string", example="500.00"),
+     *                         @OA\Property(property="currency", type="string", example="USD")
+     *                     )
+     *                 )
+     *             ),
+     *             @OA\Property(
+     *                 property="meta",
+     *                 type="object",
+     *                 description="Response metadata",
+     *                 @OA\Property(property="total_offers", type="integer", example=15, description="Total number of offers returned"),
+     *                 @OA\Property(property="origin", type="string", example="New York", description="Origin location"),
+     *                 @OA\Property(property="destination", type="string", example="Paris", description="Destination location"),
      *                 @OA\Property(property="departure_date", type="string", format="date", example="2025-06-01"),
-     *                 @OA\Property(property="return_date", type="string", format="date", example="2025-06-10")
+     *                 @OA\Property(property="return_date", type="string", format="date", nullable=true, example="2025-06-10")
      *             )
      *         )
      *     ),
-     *     @OA\Response(response=401, ref="#/components/responses/Unauthorized"),
-     *     @OA\Response(response=422, ref="#/components/responses/ValidationError"),
-     *     @OA\Response(response=503, ref="#/components/responses/ServiceUnavailable")
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized - Authentication required",
+     *         ref="#/components/responses/Unauthorized"
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error - Invalid request data",
+     *         ref="#/components/responses/ValidationError"
+     *     ),
+     *     @OA\Response(
+     *         response=503,
+     *         description="Service unavailable - Flight offers service is currently unavailable",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Flight offers service is currently unavailable"),
+     *             @OA\Property(property="data", type="array", @OA\Items(), example=[])
+     *         )
+     *     )
      * )
      */
     public function searchOffers(SearchFlightOffersRequest $request): JsonResponse
     {
-        $params = $this->buildAmadeusParameters($request);
+        $departureId = $request->input('departure_id');
+        $arrivalId = $request->input('arrival_id');
+        $outboundDate = $request->input('outbound_date');
+        $returnDate = $request->input('return_date');
 
-        $results = $this->flightService->searchFlightOffers($params);
+        $results = $this->flightService->searchFlightOffers(
+            $departureId,
+            $arrivalId,
+            $outboundDate,
+            $returnDate
+        );
 
         if ($results === null) {
             return response()->json([
@@ -82,52 +152,11 @@ class FlightController extends Controller
             'data' => $results,
             'meta' => [
                 'total_offers' => count($results),
-                'origin' => strtoupper($request->input('origin_location_code')),
-                'destination' => strtoupper($request->input('destination_location_code')),
-                'departure_date' => $request->input('departure_date'),
-                'return_date' => $request->input('return_date'),
+                'departure_id' => $departureId,
+                'arrival_id' => $arrivalId,
+                'outbound_date' => $outboundDate,
+                'return_date' => $returnDate,
             ],
         ]);
-    }
-
-    /**
-     * Build the Amadeus query payload from the validated request.
-     */
-    private function buildAmadeusParameters(SearchFlightOffersRequest $request): array
-    {
-        $payload = [
-            'originLocationCode' => strtoupper($request->input('origin_location_code')),
-            'destinationLocationCode' => strtoupper($request->input('destination_location_code')),
-            'departureDate' => $request->input('departure_date'),
-            'returnDate' => $request->input('return_date'),
-            'adults' => $request->input('adults'),
-            'children' => $request->input('children'),
-            'infants' => $request->input('infants'),
-            'travelClass' => $request->input('travel_class'),
-            'currencyCode' => $request->input('currency_code'),
-            'maxPrice' => $request->input('max_price'),
-            'max' => $request->input('max'),
-        ];
-
-        if ($request->filled('non_stop')) {
-            $payload['nonStop'] = $request->boolean('non_stop');
-        }
-
-        if ($request->filled('included_checked_bags_only')) {
-            $payload['includedCheckedBagsOnly'] = $request->boolean('included_checked_bags_only');
-        }
-
-        if ($request->filled('one_way')) {
-            $payload['oneWay'] = $request->boolean('one_way');
-        }
-
-        if ($request->filled('sources')) {
-            $payload['sources'] = implode(',', $request->input('sources'));
-        }
-
-        return array_filter(
-            $payload,
-            fn($value) => $value !== null && $value !== ''
-        );
     }
 }

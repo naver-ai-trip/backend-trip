@@ -22,20 +22,26 @@ class CreateHotelBookingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'offer_id' => ['required', 'string'],
+            'offer_id' => ['required', 'string', 'max:100'],
             'guests' => ['required', 'array', 'min:1'],
-            'guests.*.name' => ['required', 'string', 'max:255'],
-            'guests.*.contact' => ['required', 'array'],
-            'guests.*.contact.phone' => ['required', 'string'],
-            'guests.*.contact.email' => ['required', 'email'],
+            'guests.*.tid' => ['nullable', 'integer'],
+            'guests.*.title' => ['nullable', 'string', 'max:54', 'regex:/^[A-Za-z -]*$/'],
+            'guests.*.first_name' => ['required', 'string', 'max:56', 'min:1'],
+            'guests.*.last_name' => ['required', 'string', 'max:57', 'min:1'],
+            'guests.*.phone' => ['required', 'string', 'max:199', 'min:2'],
+            'guests.*.email' => ['required', 'email', 'max:90', 'min:3'],
+            'guests.*.child_age' => ['nullable', 'integer'],
             'payment' => ['required', 'array'],
             'payment.method' => ['required', 'string', 'in:CREDIT_CARD'],
-            'payment.card' => ['required', 'array'],
-            'payment.card.vendor_code' => ['required', 'string'],
-            'payment.card.card_number' => ['required', 'string'],
-            'payment.card.expiry_date' => ['required', 'string', 'regex:/^\d{2}\/\d{2}$/'],
-            'payment.card.card_holder_name' => ['required', 'string'],
-            'payment.card.card_type' => ['required', 'string', 'in:CREDIT,DEBIT'],
+            'payment.payment_card' => ['required', 'array'],
+            'payment.payment_card.vendor_code' => ['required', 'string'],
+            'payment.payment_card.card_number' => ['required', 'string'],
+            'payment.payment_card.expiry_date' => ['required', 'string', 'regex:/^\d{4}-\d{2}$/'],
+            'payment.payment_card.holder_name' => ['required', 'string'],
+            'payment.payment_card.security_code' => ['nullable', 'string'],
+            'travel_agent' => ['nullable', 'array'],
+            'travel_agent.contact' => ['nullable', 'array'],
+            'travel_agent.contact.email' => ['nullable', 'email', 'max:90', 'min:3'],
         ];
     }
 
@@ -47,13 +53,19 @@ class CreateHotelBookingRequest extends FormRequest
         return [
             'offer_id.required' => 'Offer ID is required',
             'guests.required' => 'At least one guest is required',
-            'guests.*.name.required' => 'Guest name is required',
-            'guests.*.contact.phone.required' => 'Guest phone number is required',
-            'guests.*.contact.email.required' => 'Guest email is required',
-            'guests.*.contact.email.email' => 'Guest email must be a valid email address',
+            'guests.*.first_name.required' => 'Guest first name is required',
+            'guests.*.last_name.required' => 'Guest last name is required',
+            'guests.*.phone.required' => 'Guest phone number is required',
+            'guests.*.email.required' => 'Guest email is required',
+            'guests.*.email.email' => 'Guest email must be a valid email address',
+            'guests.*.title.regex' => 'Guest title must contain only letters, spaces, and hyphens',
             'payment.method.required' => 'Payment method is required',
             'payment.method.in' => 'Payment method must be CREDIT_CARD',
-            'payment.card.expiry_date.regex' => 'Expiry date must be in MM/YY format',
+            'payment.payment_card.vendor_code.required' => 'Payment card vendor code is required',
+            'payment.payment_card.card_number.required' => 'Payment card number is required',
+            'payment.payment_card.expiry_date.required' => 'Payment card expiry date is required',
+            'payment.payment_card.expiry_date.regex' => 'Expiry date must be in YYYY-MM format (e.g., 2026-08)',
+            'payment.payment_card.holder_name.required' => 'Payment card holder name is required',
         ];
     }
 }
