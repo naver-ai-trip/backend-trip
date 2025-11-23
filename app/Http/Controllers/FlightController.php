@@ -23,50 +23,40 @@ class FlightController extends Controller
      * Searches for flight offers between two airports using SerpAPI's Google Flights integration.
      * Requires airport IATA codes for departure and arrival locations.
      *
-     * @OA\Post(
+     * @OA\Get(
      *     path="/api/flights/search",
      *     summary="Search for flight offers",
      *     description="Searches for flight offers between departure and arrival airports using SerpAPI Google Flights. Requires airport IATA codes (e.g., 'LAX', 'JFK', 'AUS'). Supports both round-trip and one-way flights.",
      *     operationId="searchFlightOffers",
      *     tags={"Flights"},
      *     security={{"sanctum":{}}},
-     *     @OA\RequestBody(
+     *     @OA\Parameter(
+     *         name="departure_id",
+     *         in="query",
      *         required=true,
-     *         description="Flight search parameters. Requires airport IATA codes.",
-     *         @OA\JsonContent(
-     *             required={"departure_id","arrival_id","outbound_date"},
-     *             @OA\Property(
-     *                 property="departure_id",
-     *                 type="string",
-     *                 example="LAX",
-     *                 description="Departure airport IATA code (e.g., 'LAX', 'JFK', 'NYC'). Must be a valid 3-letter airport code.",
-     *                 minLength=3,
-     *                 maxLength=3
-     *             ),
-     *             @OA\Property(
-     *                 property="arrival_id",
-     *                 type="string",
-     *                 example="AUS",
-     *                 description="Arrival airport IATA code (e.g., 'AUS', 'SFO', 'PAR'). Must be a valid 3-letter airport code.",
-     *                 minLength=3,
-     *                 maxLength=3
-     *             ),
-     *             @OA\Property(
-     *                 property="outbound_date",
-     *                 type="string",
-     *                 format="date",
-     *                 example="2025-10-14",
-     *                 description="Outbound (departure) date in YYYY-MM-DD format. Must be today or in the future."
-     *             ),
-     *             @OA\Property(
-     *                 property="return_date",
-     *                 type="string",
-     *                 format="date",
-     *                 nullable=true,
-     *                 example="2025-10-21",
-     *                 description="Return date in YYYY-MM-DD format. Optional for one-way flights. Must be after outbound date if provided."
-     *             )
-     *         )
+     *         description="Departure airport IATA code (e.g., 'LAX', 'JFK', 'NYC'). Must be a valid 3-letter airport code.",
+     *         @OA\Schema(type="string", example="LAX", minLength=3, maxLength=3)
+     *     ),
+     *     @OA\Parameter(
+     *         name="arrival_id",
+     *         in="query",
+     *         required=true,
+     *         description="Arrival airport IATA code (e.g., 'AUS', 'SFO', 'PAR'). Must be a valid 3-letter airport code.",
+     *         @OA\Schema(type="string", example="AUS", minLength=3, maxLength=3)
+     *     ),
+     *     @OA\Parameter(
+     *         name="outbound_date",
+     *         in="query",
+     *         required=true,
+     *         description="Outbound (departure) date in YYYY-MM-DD format. Must be today or in the future.",
+     *         @OA\Schema(type="string", format="date", example="2025-10-14")
+     *     ),
+     *     @OA\Parameter(
+     *         name="return_date",
+     *         in="query",
+     *         required=false,
+     *         description="Return date in YYYY-MM-DD format. Optional for one-way flights. Must be after outbound date if provided.",
+     *         @OA\Schema(type="string", format="date", nullable=true, example="2025-10-21")
      *     ),
      *     @OA\Response(
      *         response=200,

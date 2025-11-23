@@ -53,7 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Trip Shares (nested under trips)
     Route::get('/trips/{trip}/shares', [ShareController::class, 'index'])->name('trips.shares.index');
     Route::post('/trips/{trip}/shares', [ShareController::class, 'store'])->name('trips.shares.store');
-    
+
     // Public share access (by token)
     Route::get('/shares/{token}', [ShareController::class, 'show'])->name('shares.show');
     Route::delete('/shares/{share}', [ShareController::class, 'destroy'])->name('shares.destroy');
@@ -127,7 +127,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ============================================================
     // AI AGENT INTEGRATION ROUTES
     // ============================================================
-    
+
     // Chat Sessions - AI conversation management
     Route::post('/chat-sessions/{chatSession}/activate', [ChatSessionController::class, 'activate'])->name('chat-sessions.activate');
     Route::post('/chat-sessions/{chatSession}/deactivate', [ChatSessionController::class, 'deactivate'])->name('chat-sessions.deactivate');
@@ -153,13 +153,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/agent-webhooks/{agentWebhook}/test', [AgentWebhookController::class, 'test'])->name('agent-webhooks.test');
     Route::apiResource('agent-webhooks', AgentWebhookController::class);
     // Amadeus Hotel APIs
-    Route::post('/hotels/search', [HotelController::class, 'search'])->name('hotels.search');
-    Route::post('/hotels/offers', [HotelController::class, 'searchOffers'])->name('hotels.offers');
+    Route::get('/hotels/search', [HotelController::class, 'search'])->name('hotels.search');
+    Route::get('/hotels/offers', [HotelController::class, 'searchOffers'])->name('hotels.offers');
     Route::get('/hotels/offers/{offerId}', [HotelController::class, 'getOffer'])->name('hotels.offers.show');
-    Route::post('/hotels/ratings', [HotelController::class, 'getRatings'])->name('hotels.ratings');
+    Route::get('/hotels/ratings', [HotelController::class, 'getRatings'])->name('hotels.ratings');
     Route::post('/hotels/bookings', [HotelController::class, 'createBooking'])->name('hotels.bookings.store');
-    Route::post('/hotels/search-with-offers', [HotelController::class, 'searchWithOffers'])->name('hotels.search-with-offers');
+    Route::get('/hotels/search-with-offers', [HotelController::class, 'searchWithOffers'])->name('hotels.search-with-offers');
 
     // Amadeus Flights
-    Route::post('/flights/search', [FlightController::class, 'searchOffers'])->name('flights.search');
+    Route::get('/flights/search', [FlightController::class, 'searchOffers'])->name('flights.search');
 });

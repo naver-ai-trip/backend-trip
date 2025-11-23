@@ -24,24 +24,68 @@ class HotelController extends Controller
     /**
      * Search for hotels by city, geocode, or hotel IDs.
      *
-     * @OA\Post(
+     * @OA\Get(
      *     path="/api/hotels/search",
      *     summary="Search for hotels by city, geocode, or hotel IDs",
      *     tags={"Hotels"},
      *     security={{"sanctum":{}}},
-     *     @OA\RequestBody(
+     *     @OA\Parameter(
+     *         name="search_type",
+     *         in="query",
      *         required=true,
-     *         @OA\JsonContent(
-     *             required={"search_type"},
-     *             @OA\Property(property="search_type", type="string", enum={"city", "geocode", "hotel_ids"}, example="city"),
-     *             @OA\Property(property="city_code", type="string", example="NYC", description="Required if search_type is city"),
-     *             @OA\Property(property="latitude", type="number", format="double", example=40.7128, description="Required if search_type is geocode"),
-     *             @OA\Property(property="longitude", type="number", format="double", example=-74.0060, description="Required if search_type is geocode"),
-     *             @OA\Property(property="radius", type="integer", example=5, description="Search radius (default: 5)"),
-     *             @OA\Property(property="radius_unit", type="string", enum={"KM", "MILE"}, example="KM", description="Radius unit"),
-     *             @OA\Property(property="hotel_ids", type="array", @OA\Items(type="string"), example={"RTPAR001", "RTPAR002"}, description="Required if search_type is hotel_ids"),
-     *             @OA\Property(property="hotel_source", type="string", enum={"ALL", "GDS"}, example="ALL")
-     *         )
+     *         description="Search type",
+     *         @OA\Schema(type="string", enum={"city", "geocode", "hotel_ids"}, example="city")
+     *     ),
+     *     @OA\Parameter(
+     *         name="city_code",
+     *         in="query",
+     *         required=false,
+     *         description="Required if search_type is city",
+     *         @OA\Schema(type="string", example="NYC")
+     *     ),
+     *     @OA\Parameter(
+     *         name="latitude",
+     *         in="query",
+     *         required=false,
+     *         description="Required if search_type is geocode",
+     *         @OA\Schema(type="number", format="double", example=40.7128)
+     *     ),
+     *     @OA\Parameter(
+     *         name="longitude",
+     *         in="query",
+     *         required=false,
+     *         description="Required if search_type is geocode",
+     *         @OA\Schema(type="number", format="double", example=-74.0060)
+     *     ),
+     *     @OA\Parameter(
+     *         name="radius",
+     *         in="query",
+     *         required=false,
+     *         description="Search radius (default: 5)",
+     *         @OA\Schema(type="integer", example=5)
+     *     ),
+     *     @OA\Parameter(
+     *         name="radius_unit",
+     *         in="query",
+     *         required=false,
+     *         description="Radius unit",
+     *         @OA\Schema(type="string", enum={"KM", "MILE"}, example="KM")
+     *     ),
+     *     @OA\Parameter(
+     *         name="hotel_ids",
+     *         in="query",
+     *         required=false,
+     *         description="Required if search_type is hotel_ids. Pass multiple values as hotel_ids[]=id1&hotel_ids[]=id2",
+     *         @OA\Schema(type="array", @OA\Items(type="string"), example={"RTPAR001", "RTPAR002"}),
+     *         style="form",
+     *         explode=true
+     *     ),
+     *     @OA\Parameter(
+     *         name="hotel_source",
+     *         in="query",
+     *         required=false,
+     *         description="Hotel source",
+     *         @OA\Schema(type="string", enum={"ALL", "GDS"}, example="ALL")
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -109,26 +153,82 @@ class HotelController extends Controller
     /**
      * Search for hotel offers (availability and pricing).
      *
-     * @OA\Post(
+     * @OA\Get(
      *     path="/api/hotels/offers",
      *     summary="Search for hotel offers with availability and pricing",
      *     tags={"Hotels"},
      *     security={{"sanctum":{}}},
-     *     @OA\RequestBody(
+     *     @OA\Parameter(
+     *         name="hotel_ids",
+     *         in="query",
      *         required=true,
-     *         @OA\JsonContent(
-     *             required={"hotel_ids", "check_in_date", "check_out_date"},
-     *             @OA\Property(property="hotel_ids", type="array", @OA\Items(type="string"), example={"RTPAR001", "RTPAR002"}),
-     *             @OA\Property(property="check_in_date", type="string", format="date", example="2024-12-25"),
-     *             @OA\Property(property="check_out_date", type="string", format="date", example="2024-12-27"),
-     *             @OA\Property(property="adults", type="integer", example=2, description="Number of adults (default: 1)"),
-     *             @OA\Property(property="room_quantity", type="integer", example=1, description="Number of rooms (default: 1)"),
-     *             @OA\Property(property="currency", type="string", example="USD", description="Currency code (3 letters)"),
-     *             @OA\Property(property="price_range", type="string", example="100-500", description="Price range filter"),
-     *             @OA\Property(property="payment_policy", type="string", enum={"NONE", "GUARANTEE", "DEPOSIT"}),
-     *             @OA\Property(property="board_type", type="string", enum={"ROOM_ONLY", "BREAKFAST", "HALF_BOARD", "FULL_BOARD", "ALL_INCLUSIVE"}),
-     *             @OA\Property(property="include_closed", type="boolean", example=false)
-     *         )
+     *         description="Hotel IDs. Pass multiple values as hotel_ids[]=id1&hotel_ids[]=id2",
+     *         @OA\Schema(type="array", @OA\Items(type="string"), example={"RTPAR001", "RTPAR002"}),
+     *         style="form",
+     *         explode=true
+     *     ),
+     *     @OA\Parameter(
+     *         name="check_in_date",
+     *         in="query",
+     *         required=true,
+     *         description="Check-in date",
+     *         @OA\Schema(type="string", format="date", example="2024-12-25")
+     *     ),
+     *     @OA\Parameter(
+     *         name="check_out_date",
+     *         in="query",
+     *         required=true,
+     *         description="Check-out date",
+     *         @OA\Schema(type="string", format="date", example="2024-12-27")
+     *     ),
+     *     @OA\Parameter(
+     *         name="adults",
+     *         in="query",
+     *         required=false,
+     *         description="Number of adults (default: 1)",
+     *         @OA\Schema(type="integer", example=2)
+     *     ),
+     *     @OA\Parameter(
+     *         name="room_quantity",
+     *         in="query",
+     *         required=false,
+     *         description="Number of rooms (default: 1)",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="currency",
+     *         in="query",
+     *         required=false,
+     *         description="Currency code (3 letters)",
+     *         @OA\Schema(type="string", example="USD")
+     *     ),
+     *     @OA\Parameter(
+     *         name="price_range",
+     *         in="query",
+     *         required=false,
+     *         description="Price range filter",
+     *         @OA\Schema(type="string", example="100-500")
+     *     ),
+     *     @OA\Parameter(
+     *         name="payment_policy",
+     *         in="query",
+     *         required=false,
+     *         description="Payment policy",
+     *         @OA\Schema(type="string", enum={"NONE", "GUARANTEE", "DEPOSIT"})
+     *     ),
+     *     @OA\Parameter(
+     *         name="board_type",
+     *         in="query",
+     *         required=false,
+     *         description="Board type",
+     *         @OA\Schema(type="string", enum={"ROOM_ONLY", "BREAKFAST", "HALF_BOARD", "FULL_BOARD", "ALL_INCLUSIVE"})
+     *     ),
+     *     @OA\Parameter(
+     *         name="include_closed",
+     *         in="query",
+     *         required=false,
+     *         description="Include closed hotels",
+     *         @OA\Schema(type="boolean", example=false)
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -228,17 +328,19 @@ class HotelController extends Controller
     /**
      * Get hotel ratings and sentiments.
      *
-     * @OA\Post(
+     * @OA\Get(
      *     path="/api/hotels/ratings",
      *     summary="Get hotel ratings and sentiments",
      *     tags={"Hotels"},
      *     security={{"sanctum":{}}},
-     *     @OA\RequestBody(
+     *     @OA\Parameter(
+     *         name="hotel_ids",
+     *         in="query",
      *         required=true,
-     *         @OA\JsonContent(
-     *             required={"hotel_ids"},
-     *             @OA\Property(property="hotel_ids", type="array", @OA\Items(type="string"), example={"RTPAR001", "RTPAR002"}, maxItems=3, description="Maximum 3 hotel IDs per request")
-     *         )
+     *         description="Hotel IDs (maximum 3 per request). Pass multiple values as hotel_ids[]=id1&hotel_ids[]=id2",
+     *         @OA\Schema(type="array", @OA\Items(type="string"), example={"RTPAR001", "RTPAR002"}, maxItems=3),
+     *         style="form",
+     *         explode=true
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -626,25 +728,73 @@ class HotelController extends Controller
     /**
      * Search hotels with offers in one call (combined search).
      *
-     * @OA\Post(
+     * @OA\Get(
      *     path="/api/hotels/search-with-offers",
      *     summary="Search hotels with offers in one call",
      *     tags={"Hotels"},
      *     security={{"sanctum":{}}},
-     *     @OA\RequestBody(
+     *     @OA\Parameter(
+     *         name="latitude",
+     *         in="query",
      *         required=true,
-     *         @OA\JsonContent(
-     *             required={"latitude", "longitude", "check_in_date", "check_out_date"},
-     *             @OA\Property(property="latitude", type="number", format="double", example=40.7128),
-     *             @OA\Property(property="longitude", type="number", format="double", example=-74.0060),
-     *             @OA\Property(property="check_in_date", type="string", format="date", example="2024-12-25"),
-     *             @OA\Property(property="check_out_date", type="string", format="date", example="2024-12-27"),
-     *             @OA\Property(property="radius", type="integer", example=5),
-     *             @OA\Property(property="radius_unit", type="string", enum={"KM", "MILE"}, example="KM"),
-     *             @OA\Property(property="adults", type="integer", example=2),
-     *             @OA\Property(property="room_quantity", type="integer", example=1),
-     *             @OA\Property(property="currency", type="string", example="USD")
-     *         )
+     *         description="Latitude",
+     *         @OA\Schema(type="number", format="double", example=40.7128)
+     *     ),
+     *     @OA\Parameter(
+     *         name="longitude",
+     *         in="query",
+     *         required=true,
+     *         description="Longitude",
+     *         @OA\Schema(type="number", format="double", example=-74.0060)
+     *     ),
+     *     @OA\Parameter(
+     *         name="check_in_date",
+     *         in="query",
+     *         required=true,
+     *         description="Check-in date",
+     *         @OA\Schema(type="string", format="date", example="2024-12-25")
+     *     ),
+     *     @OA\Parameter(
+     *         name="check_out_date",
+     *         in="query",
+     *         required=true,
+     *         description="Check-out date",
+     *         @OA\Schema(type="string", format="date", example="2024-12-27")
+     *     ),
+     *     @OA\Parameter(
+     *         name="radius",
+     *         in="query",
+     *         required=false,
+     *         description="Search radius",
+     *         @OA\Schema(type="integer", example=5)
+     *     ),
+     *     @OA\Parameter(
+     *         name="radius_unit",
+     *         in="query",
+     *         required=false,
+     *         description="Radius unit",
+     *         @OA\Schema(type="string", enum={"KM", "MILE"}, example="KM")
+     *     ),
+     *     @OA\Parameter(
+     *         name="adults",
+     *         in="query",
+     *         required=false,
+     *         description="Number of adults",
+     *         @OA\Schema(type="integer", example=2)
+     *     ),
+     *     @OA\Parameter(
+     *         name="room_quantity",
+     *         in="query",
+     *         required=false,
+     *         description="Number of rooms",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="currency",
+     *         in="query",
+     *         required=false,
+     *         description="Currency code",
+     *         @OA\Schema(type="string", example="USD")
      *     ),
      *     @OA\Response(
      *         response=200,
